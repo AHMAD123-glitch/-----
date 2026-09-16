@@ -1,0 +1,6 @@
+{
+  "name": "محلّل البيانات الهندسي",
+  "description": "تطبيق هندسي متكامل لإدخال ومتابعة الكميات والمواد ونسب الإنجاز اليومية للمشاريع مع الرسوم البيانية وتوليد وتصدير التقارير بصيغة PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
