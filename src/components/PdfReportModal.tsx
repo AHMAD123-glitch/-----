@@ -22,7 +22,14 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
-  RotateCcw
+  RotateCcw,
+  ShieldCheck,
+  AlertTriangle,
+  ClipboardList,
+  Layers,
+  Package,
+  TrendingUp,
+  Check
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -51,12 +58,12 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
   const [reportDate, setReportDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [reportType, setReportType] = useState<'daily' | 'comprehensive'>('comprehensive');
+  const [reportType, setReportType] = useState<'comprehensive' | 'daily'>('comprehensive');
 
-  // Requirement 1: Checkbox for including prices/financials (Default TRUE)
+  // Option 1: Checkbox for including prices/financials (Default TRUE)
   const [includeFinancials, setIncludeFinancials] = useState<boolean>(true);
 
-  // Requirement 2: Editable approval signatures state with defaults
+  // Option 2: Signatures state with defaults
   const [showSignaturesEditor, setShowSignaturesEditor] = useState<boolean>(false);
   
   const [approvalTitle1, setApprovalTitle1] = useState<string>(
@@ -127,15 +134,16 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
       setIsGenerating(true);
       const element = printAreaRef.current;
 
-      // Capture high-resolution canvas
+      // High-resolution canvas capture
       const canvas = await html2canvas(element, {
-        scale: 2, // High resolution for crisp text
+        scale: 2, // High resolution for crisp text & borders
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        windowWidth: 1200,
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -152,7 +160,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
       heightLeft -= pageHeight;
 
-      // Handle multi-page if content overflows A4
+      // Multi-page handling with clean continuation
       while (heightLeft > 0) {
         position = heightLeft - pdfHeight;
         pdf.addPage();
@@ -164,7 +172,6 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
       pdf.save(fileName);
     } catch (err) {
       console.error('Error generating PDF:', err);
-      // Fallback to native print if html2canvas faces sandbox restrictions
       window.print();
     } finally {
       setIsGenerating(false);
@@ -176,21 +183,25 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
-        {/* Modal Top Control Bar */}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[96vh] overflow-hidden">
+        
+        {/* Modal Top Control Bar (Non-printed) */}
         <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-col gap-3 no-print">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/30">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">
-                  تصدير التقرير الهندسي المعتمد (PDF)
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>تصدير وطباعة التقرير الهندسي المعتمد (PDF)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    نسخة منسقة
+                  </span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  تخصيص خيارات العرض والأسعار والاعتمادات قبل التصدير والطباعة
+                  تنسيق منظم ومنفصل للعناوين والجداول والفقرات والبيانات
                 </p>
               </div>
             </div>
@@ -206,7 +217,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 }`}
               >
                 <Edit2 className="w-3.5 h-3.5" />
-                <span>تعديل بيانات الاعتمادات</span>
+                <span>تعديل الاعتمادات</span>
                 {showSignaturesEditor ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
 
@@ -227,7 +238,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                     reportType === 'daily' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
                   }`}
                 >
-                  تقرير الإنجاز اليومي
+                  تقرير يومي
                 </button>
               </div>
 
@@ -238,7 +249,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
               >
                 <Printer className="w-4 h-4 text-slate-400" />
-                <span>طباعة المستند</span>
+                <span>طباعة</span>
               </button>
 
               <button
@@ -251,7 +262,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>جاري إنشاء PDF...</span>
+                    <span>جاري التجهيز...</span>
                   </>
                 ) : (
                   <>
@@ -271,8 +282,8 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
             </div>
           </div>
 
-          {/* Requirement 1: Checkbox Option Bar before PDF export */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+          {/* Option Bar: Customization and Checkbox */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-slate-800/80">
             <div className="flex items-center gap-4">
               <label 
                 id="checkbox-include-financials-label"
@@ -288,36 +299,40 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <span className="text-xs font-medium text-slate-200 group-hover:text-amber-300">
                   تضمين الأسعار والقيم المالية
                 </span>
-                <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                  includeFinancials 
+                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' 
+                    : 'bg-slate-900 text-slate-400 border-slate-700'
+                }`}>
                   {includeFinancials ? 'مُفعّل' : 'تم الحذف'}
                 </span>
               </label>
 
               {!includeFinancials && (
-                <span className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
-                  تم حذف كافة الأسعار والمبالغ المالية؛ التقرير الآن فني بحت (كميات ونسب إنجاز وملاحظات فقط).
+                <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-md">
+                  تم حذف جميع المبالغ والأسعار. التقرير الآن فني بحت (كميات، نسب إنجاز، ملاحظات).
                 </span>
               )}
             </div>
 
-            <div className="text-xs text-slate-400 font-mono">
-              تاريخ الوثيقة: 
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span>تاريخ التقرير:</span>
               <input
                 type="date"
                 value={reportDate}
                 onChange={(e) => setReportDate(e.target.value)}
-                className="mr-2 bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2 py-0.5 rounded font-mono focus:outline-none focus:border-amber-500"
+                className="bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2.5 py-1 rounded font-mono focus:outline-none focus:border-amber-500"
               />
             </div>
           </div>
 
-          {/* Requirement 2: Editable Signatures & Approvals Form Drawer */}
+          {/* Editable Signatures Form Drawer */}
           {showSignaturesEditor && (
-            <div className="p-4 bg-slate-800/90 border border-amber-500/30 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+            <div className="p-4 bg-slate-800/90 border border-amber-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-700">
                 <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                   <Edit2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>تخصيص بيانات الاعتمادات والتوقيعات الرسمية للمشروع</span>
+                  <span>تعديل بيانات وتوقيعات أطراف الاعتماد</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -331,71 +346,71 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveSignatures}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded text-xs font-bold transition"
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded text-xs font-bold transition"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>حفظ واعتماد التوقيعات</span>
+                    <span>حفظ التوقيعات</span>
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                {/* Signature 1 */}
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700 space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                {/* 1 */}
+                <div className="p-2.5 bg-slate-900/70 rounded-lg border border-slate-700 space-y-1.5">
                   <span className="font-semibold text-amber-400 block text-[11px]">الاعتماد الأول (مهندس الموقع):</span>
                   <div>
-                    <label className="block text-[10px] text-slate-400 mb-0.5">المسمى الوظيفي:</label>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">المسمى:</label>
                     <input
                       type="text"
                       value={approvalTitle1}
                       onChange={(e) => setApprovalTitle1(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-400 mb-0.5">الاسم المعتمد:</label>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">الاسم:</label>
                     <input
                       type="text"
                       value={approvalName1}
                       onChange={(e) => setApprovalName1(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
 
-                {/* Signature 2 */}
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700 space-y-2">
+                {/* 2 */}
+                <div className="p-2.5 bg-slate-900/70 rounded-lg border border-slate-700 space-y-1.5">
                   <span className="font-semibold text-amber-400 block text-[11px]">الاعتماد الثاني (الشركة المنفذة):</span>
                   <div>
-                    <label className="block text-[10px] text-slate-400 mb-0.5">صفة الاعتماد:</label>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">المسمى:</label>
                     <input
                       type="text"
                       value={approvalTitle2}
                       onChange={(e) => setApprovalTitle2(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-400 mb-0.5">اسم الشركة والجهة المنفذة:</label>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">الاسم / الشركة:</label>
                     <input
                       type="text"
                       value={approvalName2}
                       onChange={(e) => setApprovalName2(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
 
-                {/* Signature 3 */}
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700 space-y-2">
+                {/* 3 */}
+                <div className="p-2.5 bg-slate-900/70 rounded-lg border border-slate-700 space-y-1.5">
                   <span className="font-semibold text-amber-400 block text-[11px]">الاعتماد الثالث (المكتب الاستشاري):</span>
                   <div>
-                    <label className="block text-[10px] text-slate-400 mb-0.5">صفة الاعتماد:</label>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">المسمى:</label>
                     <input
                       type="text"
                       value={approvalTitle3}
                       onChange={(e) => setApprovalTitle3(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                   <div>
@@ -404,7 +419,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                       type="text"
                       value={approvalName3}
                       onChange={(e) => setApprovalName3(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
@@ -415,342 +430,499 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
 
         {/* Scrollable Printable Document Container */}
         <div className="p-4 sm:p-6 overflow-y-auto bg-slate-950/60 flex justify-center">
-          {/* A4 Sheet Container */}
+          
+          {/* Printable Sheet (Formatted precisely for standard A4 and clear print view) */}
           <div
             ref={printAreaRef}
             id="printable-report"
-            className="w-full max-w-4xl bg-white text-slate-900 p-8 sm:p-10 shadow-2xl rounded-sm border border-slate-200 text-right selection:bg-amber-200 font-sans"
-            style={{ minHeight: '1100px' }}
+            className="w-full max-w-4xl bg-white text-slate-900 p-8 sm:p-11 shadow-2xl rounded-sm border border-slate-300 text-right selection:bg-amber-100 font-sans"
+            style={{ 
+              minHeight: '1120px', 
+              boxSizing: 'border-box',
+              fontFamily: "'Cairo', system-ui, -apple-system, sans-serif" 
+            }}
           >
-            {/* Header / Engineering Letterhead */}
-            <div className="border-b-2 border-slate-900 pb-4 mb-6">
-              <div className="flex items-start justify-between">
+            {/* ========================================================
+                1. HEADER: Clear, separated titles & official letterhead
+               ======================================================== */}
+            <header className="border-b-2 border-slate-900 pb-5 mb-6">
+              
+              {/* Top Bar: Title & Metadata Card (Cleanly separated) */}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200">
+                {/* Right: Main Branding & System Title */}
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-extrabold text-slate-950 tracking-tight">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-2xl font-black text-slate-950 tracking-tight">
                       محلّل البيانات الهندسي
                     </span>
-                    <span className="text-[10px] uppercase font-bold tracking-widest bg-slate-900 text-white px-2 py-0.5 rounded">
+                    <span className="text-[11px] font-bold tracking-wider bg-slate-900 text-white px-2.5 py-0.5 rounded">
                       ENGINEERING REPORT
                     </span>
                   </div>
-                  <h1 className="text-lg font-bold text-slate-800 mt-1">
-                    {reportType === 'comprehensive' 
-                      ? (includeFinancials ? 'تقرير المتابعة الفنية الشاملة لحصر الكميات والمواد والتكاليف' : 'تقرير المتابعة الفنية الميدانية لحصر الكميات ونسب الإنجاز')
-                      : 'التقرير اليومي المعتمد لسير الأعمال بالموقع'}
-                  </h1>
+                  <p className="text-xs text-slate-600 font-medium">
+                    منظومة المتابعة الفنية الميدانية وإدارة الكميات ونسب الإنجاز والمواد
+                  </p>
                 </div>
 
-                <div className="text-left font-mono text-xs text-slate-600">
-                  <div className="font-bold text-slate-900">رقم الوثيقة: {project.code}</div>
-                  <div>التاريخ: {reportDate}</div>
-                  <div>حالة التقرير: معتمد رسمي</div>
+                {/* Left: Document Metadata Box (Clear separated framing) */}
+                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs min-w-[210px] space-y-1">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-500 text-[11px]">كود المشروع:</span>
+                    <span className="font-mono font-bold text-slate-900">{project.code}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-500 text-[11px]">تاريخ التحرير:</span>
+                    <span className="font-mono text-slate-800">{reportDate}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-500 text-[11px]">حالة الاعتماد:</span>
+                    <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
+                      معتمد رسمي
+                    </span>
+                  </div>
                   {!includeFinancials && (
-                    <div className="text-[10px] text-slate-500 font-sans font-semibold mt-0.5">
-                      (نسخة فنية خالية من الأسعار)
+                    <div className="pt-1 mt-1 border-t border-slate-200 text-center text-[10px] font-bold text-amber-700">
+                      نسخة فنية (خالية من الأسعار)
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Project Meta Details Table */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-200 text-xs">
-                <div>
-                  <span className="text-slate-500 block text-[11px]">اسم المشروع:</span>
-                  <strong className="text-slate-900 font-bold">{project.name}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">الجهة المالكة (العميل):</span>
-                  <strong className="text-slate-900">{project.client}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">المقاول العام المنفذ:</span>
-                  <strong className="text-slate-900">{project.contractor}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[11px]">الاستشاري الهندسي المشرف:</span>
-                  <strong className="text-slate-900">{project.consultant}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Executive KPIs Box */}
-            <div className={`grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6 ${
-              includeFinancials ? 'grid-cols-4' : 'grid-cols-3'
-            }`}>
-              <div className="text-center border-l border-slate-200 last:border-none">
-                <span className="text-[11px] text-slate-600 block">نسبة الإنجاز الفعلي</span>
-                <span className="text-xl font-black text-blue-700 font-mono">
-                  {formatNumber(projectMetrics.actualProgressPercent, 1)}%
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  المخطط: {formatNumber(projectMetrics.plannedProgressPercent, 1)}%
-                </span>
+              {/* Main Report Title Banner (Centered, separated & clear) */}
+              <div className="mt-4 text-center py-2.5 bg-slate-100/80 rounded-lg border border-slate-200">
+                <h1 className="text-lg font-black text-slate-950 tracking-wide">
+                  {reportType === 'comprehensive'
+                    ? (includeFinancials 
+                        ? 'تقرير المتابعة الفنية الشاملة لحصر الكميات والمواد والتكاليف' 
+                        : 'تقرير المتابعة الفنية الميدانية لحصر الكميات ونسب الإنجاز')
+                    : 'التقرير اليومي المعتمد لسير الأعمال والأنشطة بالموقع'}
+                </h1>
+                <p className="text-xs text-slate-700 mt-1 font-semibold">
+                  {project.name} {project.location ? `— ${project.location}` : ''}
+                </p>
               </div>
 
-              <div className="text-center border-l border-slate-200 last:border-none">
-                <span className="text-[11px] text-slate-600 block">مؤشر الجدول (SPI)</span>
-                <span className={`text-xl font-black font-mono ${projectMetrics.spi >= 1 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {projectMetrics.spi.toFixed(2)}
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  {projectMetrics.variance >= 0 ? `+${projectMetrics.variance}% تقدم` : `${projectMetrics.variance}% تأخير`}
-                </span>
-              </div>
+              {/* Project Meta Information Cards (Organized 4-cell layout) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 text-xs">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <span className="text-slate-500 block text-[11px] font-medium mb-1">اسم المشروع:</span>
+                  <span className="text-slate-950 font-bold leading-snug block">{project.name}</span>
+                </div>
 
-              {/* Requirement 1: Only show Financial Card when includeFinancials is TRUE */}
-              {includeFinancials ? (
-                <div className="text-center border-l border-slate-200 last:border-none">
-                  <span className="text-[11px] text-slate-600 block">القيمة المنفذة للأعمال</span>
-                  <span className="text-base font-black text-slate-900 font-mono">
-                    {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <span className="text-slate-500 block text-[11px] font-medium mb-1">الجهة المالكة (العميل):</span>
+                  <span className="text-slate-900 font-bold leading-snug block">{project.client}</span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <span className="text-slate-500 block text-[11px] font-medium mb-1">المقاول العام المنفذ:</span>
+                  <span className="text-slate-900 font-bold leading-snug block">{project.contractor}</span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <span className="text-slate-500 block text-[11px] font-medium mb-1">الاستشاري الهندسي المشرف:</span>
+                  <span className="text-slate-900 font-bold leading-snug block">{project.consultant}</span>
+                </div>
+              </div>
+            </header>
+
+            {/* ========================================================
+                EXECUTIVE KPIs: Generous spacing, no border collisions
+               ======================================================== */}
+            <section className="mb-7 print-break-inside-avoid">
+              <div className={`grid gap-3.5 ${includeFinancials ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                
+                {/* KPI 1 */}
+                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-slate-600 block mb-1">نسبة الإنجاز الفعلي</span>
+                  <div className="my-1">
+                    <span className="text-2xl font-black text-blue-700 font-mono tracking-tight">
+                      {formatNumber(projectMetrics.actualProgressPercent, 1)}%
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium block">
+                    المخطط التعاقدي: {formatNumber(projectMetrics.plannedProgressPercent, 1)}%
                   </span>
-                  <span className="text-[10px] text-slate-500 block">
-                    من إجمالي العقد
+                </div>
+
+                {/* KPI 2 */}
+                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-slate-600 block mb-1">مؤشر الجدول الزمني (SPI)</span>
+                  <div className="my-1">
+                    <span className={`text-2xl font-black font-mono tracking-tight ${
+                      projectMetrics.spi >= 1 ? 'text-emerald-700' : 'text-rose-700'
+                    }`}>
+                      {projectMetrics.spi.toFixed(2)}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium block">
+                    {projectMetrics.variance >= 0 
+                      ? `+${projectMetrics.variance}% متقدم عن الجدول` 
+                      : `${projectMetrics.variance}% انحراف زمني`}
                   </span>
                 </div>
-              ) : null}
 
-              <div className="text-center">
-                <span className="text-[11px] text-slate-600 block">القوة العاملة باليوم</span>
-                <span className="text-xl font-black text-amber-700 font-mono">
-                  {latestLog?.laborCount || 0}
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  فرد + {latestLog?.equipmentCount || 0} معدات
+                {/* KPI 3: Only when financials are enabled */}
+                {includeFinancials && (
+                  <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
+                    <span className="text-xs font-semibold text-slate-600 block mb-1">القيمة المنفذة للأعمال</span>
+                    <div className="my-1">
+                      <span className="text-lg font-black text-slate-900 font-mono tracking-tight">
+                        {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium block">
+                      إجمالي العقد: {formatCurrency(project.totalContractValue, project.currency)}
+                    </span>
+                  </div>
+                )}
+
+                {/* KPI 4 */}
+                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-slate-600 block mb-1">القوة العاملة والمعدات</span>
+                  <div className="my-1">
+                    <span className="text-2xl font-black text-amber-700 font-mono tracking-tight">
+                      {latestLog?.laborCount || 0}
+                    </span>
+                    <span className="text-xs text-slate-600 font-bold mr-1">فرد</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium block">
+                    + {latestLog?.equipmentCount || 0} معدات تشغيلية
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* ========================================================
+                TABLE 1: BOQ & Work Items (Precise alignment & clearance)
+               ======================================================== */}
+            <section className="mb-7 print-break-inside-avoid">
+              {/* Section Title Header */}
+              <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3.5 py-2.5 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                  <h2 className="text-xs font-bold text-slate-900">
+                    أولاً: جدول حصر الكميات ونسب الإنجاز التراكمية المعتمدة
+                  </h2>
+                </div>
+                <span className="text-[11px] font-mono font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  إجمالي البنود: {workItems.length}
                 </span>
               </div>
-            </div>
 
-            {/* Table 1: Work Items & Completion Rates (BOQ) */}
-            <div className="mb-6 print-break-inside-avoid">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide border-r-4 border-amber-500 pr-2">
-                  أولاً: جدول حصر الكميات ونسب الإنجاز التراكمية المعتمدة
-                </h2>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  إجمالي البنود: {workItems.length} بنداً
-                </span>
-              </div>
+              {/* Table Container with proper borders & cell margins */}
+              <div className="border-x border-b border-slate-300 overflow-hidden">
+                <table className="w-full text-right text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-800 border-b border-slate-300 text-[11px] font-bold">
+                      <th className="py-2.5 px-3 text-center border-l border-slate-200 w-[11%]">الكود</th>
+                      <th className={`py-2.5 px-3 text-right border-l border-slate-200 ${includeFinancials ? 'w-[32%]' : 'w-[45%]'}`}>
+                        بيان وتوصيف الأعمال الهندسية
+                      </th>
+                      <th className="py-2.5 px-2 text-center border-l border-slate-200 w-[7%]">الوحدة</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[12%]">الكمية المقررة</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">منجز اليوم</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[12%]">إجمالي المنفذ</th>
+                      <th className={`py-2.5 px-2.5 text-center ${includeFinancials ? 'border-l border-slate-200 w-[10%]' : 'w-[15%]'}`}>
+                        نسبة الإنجاز
+                      </th>
+                      {includeFinancials && (
+                        <th className="py-2.5 px-3 text-center w-[15%]">
+                          القيمة المنفذة
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-[11px]">
+                    {workItems.map((item, idx) => {
+                      const totalExec = item.previousQuantity + item.todayQuantity;
+                      const percent = item.plannedQuantity > 0 
+                        ? Math.min(100, (totalExec / item.plannedQuantity) * 100) 
+                        : 0;
+                      const val = totalExec * item.unitRate;
 
-              <table className="w-full text-right text-[11px] border border-slate-300 border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-800 border-b border-slate-300">
-                    <th className="p-2 border border-slate-300 w-16">الكود</th>
-                    <th className="p-2 border border-slate-300">بيان الأعمال الهندسية</th>
-                    <th className="p-2 border border-slate-300 text-center w-14">الوحدة</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">الكمية المقررة</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">منجز اليوم</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">إجمالي المنفذ</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">نسبة الإنجاز</th>
-                    {/* Requirement 1: Only show Financial column when includeFinancials is TRUE */}
-                    {includeFinancials && (
-                      <th className="p-2 border border-slate-300 text-center w-28">القيمة المنفذة</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {workItems.map((item) => {
-                    const totalExec = item.previousQuantity + item.todayQuantity;
-                    const percent = item.plannedQuantity > 0 
-                      ? Math.min(100, (totalExec / item.plannedQuantity) * 100) 
-                      : 0;
-                    const val = totalExec * item.unitRate;
-
-                    return (
-                      <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50">
-                        <td className="p-2 border border-slate-200 font-mono font-bold text-slate-700">
-                          {item.code}
-                        </td>
-                        <td className="p-2 border border-slate-200 font-medium">
-                          {item.description}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono">
-                          {item.unit}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono">
-                          {formatNumber(item.plannedQuantity)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono font-semibold text-amber-700">
-                          +{formatNumber(item.todayQuantity)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono font-bold text-slate-900">
-                          {formatNumber(totalExec)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono font-bold">
-                          <span className={percent >= 100 ? 'text-emerald-700' : 'text-blue-700'}>
-                            {formatNumber(percent, 1)}%
-                          </span>
-                        </td>
-                        {/* Requirement 1: Only show Financial column cell when includeFinancials is TRUE */}
-                        {includeFinancials && (
-                          <td className="p-2 border border-slate-200 text-center font-mono text-slate-800">
-                            {formatCurrency(val, project.currency)}
+                      return (
+                        <tr 
+                          key={item.id} 
+                          className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
+                        >
+                          <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                            {item.code}
                           </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <td className="py-2.5 px-3 text-right font-medium text-slate-900 border-l border-slate-200 leading-relaxed">
+                            {item.description}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono text-slate-700 border-l border-slate-200 whitespace-nowrap">
+                            {item.unit}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(item.plannedQuantity)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-amber-700 border-l border-slate-200 whitespace-nowrap">
+                            +{formatNumber(item.todayQuantity)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(totalExec)}
+                          </td>
+                          <td className={`py-2.5 px-2.5 text-center font-mono font-bold whitespace-nowrap ${
+                            includeFinancials ? 'border-l border-slate-200' : ''
+                          }`}>
+                            <span className={percent >= 100 ? 'text-emerald-700 font-extrabold' : 'text-blue-700'}>
+                              {formatNumber(percent, 1)}%
+                            </span>
+                          </td>
+                          {includeFinancials && (
+                            <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-900 whitespace-nowrap">
+                              {formatCurrency(val, project.currency)}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
 
-            {/* Table 2: Materials & Inventory Status */}
-            <div className="mb-6 print-break-inside-avoid">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide border-r-4 border-purple-600 pr-2">
-                  ثانياً: موقف المواد والتوريدات والمخزون بالموقع
-                </h2>
-                <span className="text-[11px] text-slate-500 font-mono">
+                  {/* Summary Footer Row */}
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold text-[11px] border-t-2 border-slate-300">
+                      <td colSpan={2} className="py-2.5 px-3 text-right text-slate-900 border-l border-slate-200">
+                        المتوسط الوزني ونسب الإنجاز الكلية
+                      </td>
+                      <td colSpan={includeFinancials ? 4 : 4} className="py-2.5 px-2.5 text-center text-slate-600 border-l border-slate-200">
+                        {workItems.length} بنود أعمال هندسية
+                      </td>
+                      <td className={`py-2.5 px-2.5 text-center font-mono font-black text-blue-800 ${
+                        includeFinancials ? 'border-l border-slate-200' : ''
+                      }`}>
+                        {formatNumber(projectMetrics.actualProgressPercent, 1)}%
+                      </td>
+                      {includeFinancials && (
+                        <td className="py-2.5 px-3 text-center font-mono font-black text-slate-950 whitespace-nowrap">
+                          {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
+                        </td>
+                      )}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </section>
+
+            {/* ========================================================
+                TABLE 2: Materials & Inventory Status (Clear columns)
+               ======================================================== */}
+            <section className="mb-7 print-break-inside-avoid">
+              {/* Section Title Header */}
+              <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3.5 py-2.5 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>
+                  <h2 className="text-xs font-bold text-slate-900">
+                    ثانياً: موقف المواد والتوريدات والمخزون الميداني بالموقع
+                  </h2>
+                </div>
+                <span className="text-[11px] font-mono font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
                   {materials.length} مواد أساسية
                 </span>
               </div>
 
-              <table className="w-full text-right text-[11px] border border-slate-300 border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-800 border-b border-slate-300">
-                    <th className="p-2 border border-slate-300">المادة والمواصفة الفنية</th>
-                    <th className="p-2 border border-slate-300 text-center w-14">الوحدة</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">إجمالي المطلوب</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">المورّد للموقع</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">مستهلك اليوم</th>
-                    <th className="p-2 border border-slate-300 text-center w-20">إجمالي المستهلك</th>
-                    <th className="p-2 border border-slate-300 text-center w-24">الرصيد المتبقي بالمخزن</th>
-                    <th className="p-2 border border-slate-300 text-center w-24">موقف الكفاية</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {materials.map((mat) => {
-                    const remaining = mat.totalDelivered - mat.totalUsed;
-                    const isLow = remaining <= mat.minThreshold;
+              {/* Table Container */}
+              <div className="border-x border-b border-slate-300 overflow-hidden">
+                <table className="w-full text-right text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-800 border-b border-slate-300 text-[11px] font-bold">
+                      <th className="py-2.5 px-3 text-right border-l border-slate-200 w-[27%]">
+                        المادة والمواصفة الفنية
+                      </th>
+                      <th className="py-2.5 px-2 text-center border-l border-slate-200 w-[7%]">الوحدة</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">المطلوب كلياً</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">المورّد للموقع</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">مستهلك اليوم</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">إجمالي المستهلك</th>
+                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">الرصيد المتبقي</th>
+                      <th className="py-2.5 px-2.5 text-center w-[11%]">موقف الكفاية</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-[11px]">
+                    {materials.map((mat, idx) => {
+                      const remaining = mat.totalDelivered - mat.totalUsed;
+                      const isLow = remaining <= mat.minThreshold;
 
-                    return (
-                      <tr key={mat.id} className="border-b border-slate-200">
-                        <td className="p-2 border border-slate-200 font-medium">
-                          {mat.name}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono">
-                          {mat.unit}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono">
-                          {formatNumber(mat.totalRequired)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono font-bold text-blue-800">
-                          {formatNumber(mat.totalDelivered)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono font-semibold text-purple-700">
-                          {formatNumber(mat.todayUsed)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono">
-                          {formatNumber(mat.totalUsed)}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono font-bold text-slate-900">
-                          {formatNumber(remaining)} {mat.unit}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-semibold">
-                          {isLow ? (
-                            <span className="text-rose-700 font-bold">نقص بالمخزون</span>
-                          ) : (
-                            <span className="text-emerald-700">كافٍ ومستقر</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      return (
+                        <tr 
+                          key={mat.id}
+                          className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
+                        >
+                          <td className="py-2.5 px-3 text-right font-medium text-slate-900 border-l border-slate-200 leading-relaxed">
+                            {mat.name}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono text-slate-700 border-l border-slate-200 whitespace-nowrap">
+                            {mat.unit}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(mat.totalRequired)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-blue-900 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(mat.totalDelivered)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-purple-700 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(mat.todayUsed)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(mat.totalUsed)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
+                            {formatNumber(remaining)}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
+                            {isLow ? (
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                نقص بالمخزون
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                كافٍ ومستقر
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
-            {/* Table 3: Latest Site Observations & Daily Log */}
+            {/* ========================================================
+                3. SITE OBSERVATIONS: Clearly organized paragraphs
+               ======================================================== */}
             {latestLog && (
-              <div className="mb-6 p-4 bg-slate-50 border border-slate-300 rounded-lg print-break-inside-avoid">
-                <h3 className="text-xs font-bold text-slate-900 mb-2 border-r-4 border-blue-600 pr-2">
-                  ثالثاً: ملخص الأعمال اليومية وملاحظات مهندس الموقع ({latestLog.dayName} {latestLog.date})
-                </h3>
-                <div className="text-xs text-slate-700 space-y-2">
-                  <div>
-                    <strong className="text-slate-900">سير العمل والمنجزات: </strong>
-                    <span>{latestLog.summary}</span>
+              <section className="mb-8 print-break-inside-avoid">
+                {/* Section Title Header */}
+                <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3.5 py-2.5 rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+                    <h2 className="text-xs font-bold text-slate-900">
+                      ثالثاً: سجل الملاحظات التنفيذية واليوميات الميدانية ({latestLog.dayName} {latestLog.date})
+                    </h2>
                   </div>
-                  <div>
-                    <strong className="text-slate-900">المعوقات الميدانية: </strong>
-                    <span>{latestLog.obstacles || 'لا توجد معوقات تؤثر على المسار الحرج للمشروع.'}</span>
+                  <span className="text-[11px] font-mono text-slate-600">
+                    توثيق: {latestLog.loggedBy}
+                  </span>
+                </div>
+
+                {/* Paragraph Content Blocks */}
+                <div className="border-x border-b border-slate-300 p-4 space-y-3.5 bg-slate-50/50 rounded-b-lg text-xs">
+                  
+                  {/* Paragraph 1: Progress Summary */}
+                  <div className="bg-white border border-slate-200 rounded-lg p-3.5">
+                    <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1.5 pb-1 border-b border-slate-100">
+                      <ClipboardList className="w-4 h-4 text-blue-600" />
+                      <span>سير الأعمال والمنجزات الميدانية:</span>
+                    </div>
+                    <p className="text-slate-800 leading-relaxed text-[11px] pr-5">
+                      {latestLog.summary}
+                    </p>
                   </div>
-                  <div>
-                    <strong className="text-slate-900">السلامة والصحة المهنية (HSE): </strong>
-                    <span>{latestLog.safetyNotes || 'الالتزام التام بكافة تدابير واشتراطات السلامة.'}</span>
+
+                  {/* Paragraph 2: Obstacles & Actions */}
+                  <div className="bg-white border border-slate-200 rounded-lg p-3.5">
+                    <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1.5 pb-1 border-b border-slate-100">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span>المعوقات الميدانية والإجراءات التصحيحية:</span>
+                    </div>
+                    <p className="text-slate-800 leading-relaxed text-[11px] pr-5">
+                      {latestLog.obstacles || 'سير الأعمال يسير بانتظام تام، ولا توجد أي معوقات تؤثر على المسار الحرج للمشروع.'}
+                    </p>
+                  </div>
+
+                  {/* Paragraph 3: Health, Safety & Environment (HSE) */}
+                  <div className="bg-white border border-slate-200 rounded-lg p-3.5">
+                    <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1.5 pb-1 border-b border-slate-100">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>السلامة والصحة المهنية والبيئة (HSE):</span>
+                    </div>
+                    <p className="text-slate-800 leading-relaxed text-[11px] pr-5">
+                      {latestLog.safetyNotes || 'الالتزام التام بكافة تدابير واشتراطات السلامة المهنية ومهمات الوقاية الشخصية في الموقع.'}
+                    </p>
                   </div>
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Requirement 2: Signatures & Official Approvals Footer with Editable Fields */}
-            <div className="mt-8 pt-6 border-t-2 border-slate-300 print-break-inside-avoid">
-              <div className="text-xs font-bold text-slate-700 mb-6 text-center">
-                الاعتمادات والمصادقات الرسمية
+            {/* ========================================================
+                4. SIGNATURES & APPROVALS: Clear, separated & editable
+               ======================================================== */}
+            <footer className="mt-8 pt-6 border-t-2 border-slate-900 print-break-inside-avoid">
+              <div className="text-xs font-bold text-slate-800 mb-6 text-center">
+                الاعتمادات والمصادقات الرسمية المعتمدة للمشروع
               </div>
+
               <div className="grid grid-cols-3 gap-6 text-center text-xs">
                 {/* Signature 1 */}
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center bg-slate-50/60 border border-slate-200 rounded-lg p-3.5">
                   <input
                     type="text"
                     value={approvalTitle1}
                     onChange={(e) => setApprovalTitle1(e.target.value)}
-                    className="font-bold text-slate-900 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 pb-0.5 transition cursor-text"
+                    className="font-bold text-slate-900 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none pb-1 transition cursor-text text-xs"
                     title="انقر لتعديل المسمى"
                   />
                   <textarea
                     rows={2}
                     value={approvalName1}
                     onChange={(e) => setApprovalName1(e.target.value)}
-                    className="text-slate-700 mt-1 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 resize-none transition cursor-text leading-tight"
+                    className="text-slate-700 mt-1 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none resize-none transition cursor-text leading-snug text-[11px]"
                     title="انقر لتعديل الاسم"
                   />
-                  <div className="mt-6 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
-                  <div className="text-[10px] text-slate-400 mt-1">التوقيع والختم</div>
+                  <div className="mt-8 border-b-2 border-dashed border-slate-400 w-36 mx-auto"></div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-1.5">التوقيع والختم</div>
                 </div>
 
                 {/* Signature 2 */}
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center bg-slate-50/60 border border-slate-200 rounded-lg p-3.5">
                   <input
                     type="text"
                     value={approvalTitle2}
                     onChange={(e) => setApprovalTitle2(e.target.value)}
-                    className="font-bold text-slate-900 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 pb-0.5 transition cursor-text"
+                    className="font-bold text-slate-900 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none pb-1 transition cursor-text text-xs"
                     title="انقر لتعديل المسمى"
                   />
                   <textarea
                     rows={2}
                     value={approvalName2}
                     onChange={(e) => setApprovalName2(e.target.value)}
-                    className="text-slate-700 mt-1 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 resize-none transition cursor-text leading-tight text-[11px]"
+                    className="text-slate-700 mt-1 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none resize-none transition cursor-text leading-snug text-[11px]"
                     title="انقر لتعديل الاسم أو الوصف"
                   />
-                  <div className="mt-6 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
-                  <div className="text-[10px] text-slate-400 mt-1">التوقيع والختم</div>
+                  <div className="mt-8 border-b-2 border-dashed border-slate-400 w-36 mx-auto"></div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-1.5">التوقيع والختم</div>
                 </div>
 
                 {/* Signature 3 */}
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center bg-slate-50/60 border border-slate-200 rounded-lg p-3.5">
                   <input
                     type="text"
                     value={approvalTitle3}
                     onChange={(e) => setApprovalTitle3(e.target.value)}
-                    className="font-bold text-slate-900 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 pb-0.5 transition cursor-text"
+                    className="font-bold text-slate-900 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none pb-1 transition cursor-text text-xs"
                     title="انقر لتعديل المسمى"
                   />
                   <textarea
                     rows={2}
                     value={approvalName3}
                     onChange={(e) => setApprovalName3(e.target.value)}
-                    className="text-slate-700 mt-1 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 resize-none transition cursor-text leading-tight"
+                    className="text-slate-700 mt-1 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none resize-none transition cursor-text leading-snug text-[11px]"
                     title="انقر لتعديل الاسم"
                   />
-                  <div className="mt-6 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
-                  <div className="text-[10px] text-slate-400 mt-1">التوقيع والختم</div>
+                  <div className="mt-8 border-b-2 border-dashed border-slate-400 w-36 mx-auto"></div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-1.5">التوقيع والختم</div>
                 </div>
               </div>
-            </div>
+
+              {/* End of Official Report Notice */}
+              <div className="text-center text-[10px] text-slate-400 mt-6 pt-3 border-t border-slate-200 font-mono">
+                — نهاية التقرير الهندسي المعتمد — تم الإصدار عبر «محلّل البيانات الهندسي» —
+              </div>
+            </footer>
+
           </div>
         </div>
       </div>

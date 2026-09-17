@@ -20,6 +20,14 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  #printable-report {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 12mm 10mm !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
   #printable-report input,
   #printable-report textarea {
     border: none !important;
