@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ProjectInfo, WorkItem, MaterialItem, DailyLog } from '../types';
 import { 
   calculateProjectMetrics, 
@@ -15,7 +15,14 @@ import {
   Building2, 
   Calendar, 
   FileText,
-  Loader2
+  Loader2,
+  CheckSquare,
+  Square,
+  Edit2,
+  ChevronDown,
+  ChevronUp,
+  Save,
+  RotateCcw
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -27,6 +34,7 @@ interface PdfReportModalProps {
   workItems: WorkItem[];
   materials: MaterialItem[];
   dailyLogs: DailyLog[];
+  onUpdateProject?: (updated: ProjectInfo) => void;
 }
 
 export const PdfReportModal: React.FC<PdfReportModalProps> = ({
@@ -36,6 +44,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
   workItems,
   materials,
   dailyLogs,
+  onUpdateProject,
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -44,11 +53,72 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
   );
   const [reportType, setReportType] = useState<'daily' | 'comprehensive'>('comprehensive');
 
+  // Requirement 1: Checkbox for including prices/financials (Default TRUE)
+  const [includeFinancials, setIncludeFinancials] = useState<boolean>(true);
+
+  // Requirement 2: Editable approval signatures state with defaults
+  const [showSignaturesEditor, setShowSignaturesEditor] = useState<boolean>(false);
+  
+  const [approvalTitle1, setApprovalTitle1] = useState<string>(
+    project.approvalTitle1 || 'مهندس الموقع المنفذ'
+  );
+  const [approvalName1, setApprovalName1] = useState<string>(
+    project.approvalName1 || 'أحمد هليل الذبياني'
+  );
+
+  const [approvalTitle2, setApprovalTitle2] = useState<string>(
+    project.approvalTitle2 || 'عن الشركة المنفذة'
+  );
+  const [approvalName2, setApprovalName2] = useState<string>(
+    project.approvalName2 || 'شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي — المدينة المنورة'
+  );
+
+  const [approvalTitle3, setApprovalTitle3] = useState<string>(
+    project.approvalTitle3 || 'المكتب الاستشاري'
+  );
+  const [approvalName3, setApprovalName3] = useState<string>(
+    project.approvalName3 || 'المكتب الاستشاري للمشروع'
+  );
+
+  // Keep state updated when project prop updates
+  useEffect(() => {
+    if (project.approvalTitle1) setApprovalTitle1(project.approvalTitle1);
+    if (project.approvalName1) setApprovalName1(project.approvalName1);
+    if (project.approvalTitle2) setApprovalTitle2(project.approvalTitle2);
+    if (project.approvalName2) setApprovalName2(project.approvalName2);
+    if (project.approvalTitle3) setApprovalTitle3(project.approvalTitle3);
+    if (project.approvalName3) setApprovalName3(project.approvalName3);
+  }, [project]);
+
   if (!isOpen) return null;
 
   const projectMetrics = calculateProjectMetrics(workItems);
   const materialMetrics = calculateMaterialMetrics(materials);
   const latestLog = dailyLogs[dailyLogs.length - 1];
+
+  const handleSaveSignatures = () => {
+    if (onUpdateProject) {
+      onUpdateProject({
+        ...project,
+        approvalTitle1,
+        approvalName1,
+        approvalTitle2,
+        approvalName2,
+        approvalTitle3,
+        approvalName3,
+      });
+    }
+    setShowSignaturesEditor(false);
+  };
+
+  const handleResetSignatures = () => {
+    setApprovalTitle1('مهندس الموقع المنفذ');
+    setApprovalName1('أحمد هليل الذبياني');
+    setApprovalTitle2('عن الشركة المنفذة');
+    setApprovalName2('شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي — المدينة المنورة');
+    setApprovalTitle3('المكتب الاستشاري');
+    setApprovalName3('المكتب الاستشاري للمشروع');
+  };
 
   const handleDownloadPdf = async () => {
     if (!printAreaRef.current) return;
@@ -109,81 +179,238 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
         {/* Modal Top Control Bar */}
-        <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 no-print">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/30">
-              <FileText className="w-5 h-5" />
+        <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-col gap-3 no-print">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/30">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  تصدير التقرير الهندسي المعتمد (PDF)
+                </h3>
+                <p className="text-xs text-slate-400">
+                  تخصيص خيارات العرض والأسعار والاعتمادات قبل التصدير والطباعة
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">
-                تصدير التقرير الهندسي المعتمد (PDF)
-              </h3>
-              <p className="text-xs text-slate-400">
-                معاينة مباشرة للوثيقة الهندسية الجاهزة للطباعة والتصدير
-              </p>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSignaturesEditor(!showSignaturesEditor)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                  showSignaturesEditor
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }`}
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>تعديل بيانات الاعتمادات</span>
+                {showSignaturesEditor ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+
+              <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setReportType('comprehensive')}
+                  className={`px-2.5 py-1 rounded font-medium transition ${
+                    reportType === 'comprehensive' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  تقرير شامل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportType('daily')}
+                  className={`px-2.5 py-1 rounded font-medium transition ${
+                    reportType === 'daily' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
+                  }`}
+                >
+                  تقرير الإنجاز اليومي
+                </button>
+              </div>
+
+              <button
+                id="btn-trigger-print"
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
+              >
+                <Printer className="w-4 h-4 text-slate-400" />
+                <span>طباعة المستند</span>
+              </button>
+
+              <button
+                id="btn-save-pdf"
+                type="button"
+                disabled={isGenerating}
+                onClick={handleDownloadPdf}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-bold transition shadow"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>جاري إنشاء PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    <span>تصدير PDF</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs">
-              <button
-                type="button"
-                onClick={() => setReportType('comprehensive')}
-                className={`px-2.5 py-1 rounded font-medium transition ${
-                  reportType === 'comprehensive' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                }`}
+          {/* Requirement 1: Checkbox Option Bar before PDF export */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+            <div className="flex items-center gap-4">
+              <label 
+                id="checkbox-include-financials-label"
+                className="flex items-center gap-2 cursor-pointer bg-slate-800/90 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-500/50 transition select-none group"
               >
-                تقرير شامل
-              </button>
-              <button
-                type="button"
-                onClick={() => setReportType('daily')}
-                className={`px-2.5 py-1 rounded font-medium transition ${
-                  reportType === 'daily' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                }`}
-              >
-                تقرير الإنجاز اليومي
-              </button>
-            </div>
+                <input
+                  type="checkbox"
+                  id="checkbox-include-financials"
+                  checked={includeFinancials}
+                  onChange={(e) => setIncludeFinancials(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+                <span className="text-xs font-medium text-slate-200 group-hover:text-amber-300">
+                  تضمين الأسعار والقيم المالية
+                </span>
+                <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
+                  {includeFinancials ? 'مُفعّل' : 'تم الحذف'}
+                </span>
+              </label>
 
-            <button
-              id="btn-trigger-print"
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
-            >
-              <Printer className="w-4 h-4 text-slate-400" />
-              <span>طباعة المستند</span>
-            </button>
-
-            <button
-              id="btn-save-pdf"
-              type="button"
-              disabled={isGenerating}
-              onClick={handleDownloadPdf}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-bold transition shadow"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري إنشاء PDF...</span>
-                </>
-              ) : (
-                <>
-                  <FileDown className="w-4 h-4" />
-                  <span>تحميل ملف PDF</span>
-                </>
+              {!includeFinancials && (
+                <span className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
+                  تم حذف كافة الأسعار والمبالغ المالية؛ التقرير الآن فني بحت (كميات ونسب إنجاز وملاحظات فقط).
+                </span>
               )}
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="text-xs text-slate-400 font-mono">
+              تاريخ الوثيقة: 
+              <input
+                type="date"
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value)}
+                className="mr-2 bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2 py-0.5 rounded font-mono focus:outline-none focus:border-amber-500"
+              />
+            </div>
           </div>
+
+          {/* Requirement 2: Editable Signatures & Approvals Form Drawer */}
+          {showSignaturesEditor && (
+            <div className="p-4 bg-slate-800/90 border border-amber-500/30 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Edit2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>تخصيص بيانات الاعتمادات والتوقيعات الرسمية للمشروع</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetSignatures}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-400 transition"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>استعادة الافتراضي</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSignatures}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded text-xs font-bold transition"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>حفظ واعتماد التوقيعات</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                {/* Signature 1 */}
+                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700 space-y-2">
+                  <span className="font-semibold text-amber-400 block text-[11px]">الاعتماد الأول (مهندس الموقع):</span>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">المسمى الوظيفي:</label>
+                    <input
+                      type="text"
+                      value={approvalTitle1}
+                      onChange={(e) => setApprovalTitle1(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">الاسم المعتمد:</label>
+                    <input
+                      type="text"
+                      value={approvalName1}
+                      onChange={(e) => setApprovalName1(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Signature 2 */}
+                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700 space-y-2">
+                  <span className="font-semibold text-amber-400 block text-[11px]">الاعتماد الثاني (الشركة المنفذة):</span>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">صفة الاعتماد:</label>
+                    <input
+                      type="text"
+                      value={approvalTitle2}
+                      onChange={(e) => setApprovalTitle2(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">اسم الشركة والجهة المنفذة:</label>
+                    <input
+                      type="text"
+                      value={approvalName2}
+                      onChange={(e) => setApprovalName2(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Signature 3 */}
+                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700 space-y-2">
+                  <span className="font-semibold text-amber-400 block text-[11px]">الاعتماد الثالث (المكتب الاستشاري):</span>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">صفة الاعتماد:</label>
+                    <input
+                      type="text"
+                      value={approvalTitle3}
+                      onChange={(e) => setApprovalTitle3(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">اسم المكتب الاستشاري:</label>
+                    <input
+                      type="text"
+                      value={approvalName3}
+                      onChange={(e) => setApprovalName3(e.target.value)}
+                      className="w-full px-2.5 py-1 bg-slate-800 border border-slate-600 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Printable Document Container */}
@@ -208,7 +435,9 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                     </span>
                   </div>
                   <h1 className="text-lg font-bold text-slate-800 mt-1">
-                    {reportType === 'comprehensive' ? 'تقرير المتابعة الفنية الشاملة لحصر الكميات والمواد' : 'التقرير اليومي المعتمد لسير الأعمال بالموقع'}
+                    {reportType === 'comprehensive' 
+                      ? (includeFinancials ? 'تقرير المتابعة الفنية الشاملة لحصر الكميات والمواد والتكاليف' : 'تقرير المتابعة الفنية الميدانية لحصر الكميات ونسب الإنجاز')
+                      : 'التقرير اليومي المعتمد لسير الأعمال بالموقع'}
                   </h1>
                 </div>
 
@@ -216,6 +445,11 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                   <div className="font-bold text-slate-900">رقم الوثيقة: {project.code}</div>
                   <div>التاريخ: {reportDate}</div>
                   <div>حالة التقرير: معتمد رسمي</div>
+                  {!includeFinancials && (
+                    <div className="text-[10px] text-slate-500 font-sans font-semibold mt-0.5">
+                      (نسخة فنية خالية من الأسعار)
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -241,7 +475,9 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
             </div>
 
             {/* Executive KPIs Box */}
-            <div className="grid grid-cols-4 gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6">
+            <div className={`grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6 ${
+              includeFinancials ? 'grid-cols-4' : 'grid-cols-3'
+            }`}>
               <div className="text-center border-l border-slate-200 last:border-none">
                 <span className="text-[11px] text-slate-600 block">نسبة الإنجاز الفعلي</span>
                 <span className="text-xl font-black text-blue-700 font-mono">
@@ -262,15 +498,18 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 </span>
               </div>
 
-              <div className="text-center border-l border-slate-200 last:border-none">
-                <span className="text-[11px] text-slate-600 block">القيمة المنفذة للأعمال</span>
-                <span className="text-base font-black text-slate-900 font-mono">
-                  {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  من إجمالي العقد
-                </span>
-              </div>
+              {/* Requirement 1: Only show Financial Card when includeFinancials is TRUE */}
+              {includeFinancials ? (
+                <div className="text-center border-l border-slate-200 last:border-none">
+                  <span className="text-[11px] text-slate-600 block">القيمة المنفذة للأعمال</span>
+                  <span className="text-base font-black text-slate-900 font-mono">
+                    {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    من إجمالي العقد
+                  </span>
+                </div>
+              ) : null}
 
               <div className="text-center">
                 <span className="text-[11px] text-slate-600 block">القوة العاملة باليوم</span>
@@ -290,7 +529,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                   أولاً: جدول حصر الكميات ونسب الإنجاز التراكمية المعتمدة
                 </h2>
                 <span className="text-[11px] text-slate-500 font-mono">
-                  إجمالي البنود: {workItems.length}
+                  إجمالي البنود: {workItems.length} بنداً
                 </span>
               </div>
 
@@ -304,7 +543,10 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                     <th className="p-2 border border-slate-300 text-center w-20">منجز اليوم</th>
                     <th className="p-2 border border-slate-300 text-center w-20">إجمالي المنفذ</th>
                     <th className="p-2 border border-slate-300 text-center w-20">نسبة الإنجاز</th>
-                    <th className="p-2 border border-slate-300 text-center w-28">القيمة المنفذة</th>
+                    {/* Requirement 1: Only show Financial column when includeFinancials is TRUE */}
+                    {includeFinancials && (
+                      <th className="p-2 border border-slate-300 text-center w-28">القيمة المنفذة</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -340,9 +582,12 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                             {formatNumber(percent, 1)}%
                           </span>
                         </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono text-slate-800">
-                          {formatCurrency(val, project.currency)}
-                        </td>
+                        {/* Requirement 1: Only show Financial column cell when includeFinancials is TRUE */}
+                        {includeFinancials && (
+                          <td className="p-2 border border-slate-200 text-center font-mono text-slate-800">
+                            {formatCurrency(val, project.currency)}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -439,30 +684,69 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
               </div>
             )}
 
-            {/* Signatures & Official Approvals Footer */}
+            {/* Requirement 2: Signatures & Official Approvals Footer with Editable Fields */}
             <div className="mt-8 pt-6 border-t-2 border-slate-300 print-break-inside-avoid">
               <div className="text-xs font-bold text-slate-700 mb-6 text-center">
                 الاعتمادات والمصادقات الرسمية
               </div>
               <div className="grid grid-cols-3 gap-6 text-center text-xs">
-                <div>
-                  <div className="font-bold text-slate-900">مهندس الموقع المنفذ</div>
-                  <div className="text-slate-600 mt-1">{project.siteEngineer}</div>
-                  <div className="mt-8 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
+                {/* Signature 1 */}
+                <div className="flex flex-col items-center">
+                  <input
+                    type="text"
+                    value={approvalTitle1}
+                    onChange={(e) => setApprovalTitle1(e.target.value)}
+                    className="font-bold text-slate-900 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 pb-0.5 transition cursor-text"
+                    title="انقر لتعديل المسمى"
+                  />
+                  <textarea
+                    rows={2}
+                    value={approvalName1}
+                    onChange={(e) => setApprovalName1(e.target.value)}
+                    className="text-slate-700 mt-1 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 resize-none transition cursor-text leading-tight"
+                    title="انقر لتعديل الاسم"
+                  />
+                  <div className="mt-6 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
                   <div className="text-[10px] text-slate-400 mt-1">التوقيع والختم</div>
                 </div>
 
-                <div>
-                  <div className="font-bold text-slate-900">مدير المشروع (المقاول)</div>
-                  <div className="text-slate-600 mt-1">{project.projectManager}</div>
-                  <div className="mt-8 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
+                {/* Signature 2 */}
+                <div className="flex flex-col items-center">
+                  <input
+                    type="text"
+                    value={approvalTitle2}
+                    onChange={(e) => setApprovalTitle2(e.target.value)}
+                    className="font-bold text-slate-900 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 pb-0.5 transition cursor-text"
+                    title="انقر لتعديل المسمى"
+                  />
+                  <textarea
+                    rows={2}
+                    value={approvalName2}
+                    onChange={(e) => setApprovalName2(e.target.value)}
+                    className="text-slate-700 mt-1 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 resize-none transition cursor-text leading-tight text-[11px]"
+                    title="انقر لتعديل الاسم أو الوصف"
+                  />
+                  <div className="mt-6 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
                   <div className="text-[10px] text-slate-400 mt-1">التوقيع والختم</div>
                 </div>
 
-                <div>
-                  <div className="font-bold text-slate-900">المهندس المقيم (الاستشاري)</div>
-                  <div className="text-slate-600 mt-1">{project.consultant}</div>
-                  <div className="mt-8 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
+                {/* Signature 3 */}
+                <div className="flex flex-col items-center">
+                  <input
+                    type="text"
+                    value={approvalTitle3}
+                    onChange={(e) => setApprovalTitle3(e.target.value)}
+                    className="font-bold text-slate-900 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 pb-0.5 transition cursor-text"
+                    title="انقر لتعديل المسمى"
+                  />
+                  <textarea
+                    rows={2}
+                    value={approvalName3}
+                    onChange={(e) => setApprovalName3(e.target.value)}
+                    className="text-slate-700 mt-1 text-center w-full bg-transparent hover:bg-slate-100 focus:bg-slate-100 focus:outline-none border-b border-transparent focus:border-slate-400 resize-none transition cursor-text leading-tight"
+                    title="انقر لتعديل الاسم"
+                  />
+                  <div className="mt-6 border-b border-dashed border-slate-400 w-36 mx-auto"></div>
                   <div className="text-[10px] text-slate-400 mt-1">التوقيع والختم</div>
                 </div>
               </div>

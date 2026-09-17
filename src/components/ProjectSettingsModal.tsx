@@ -149,6 +149,74 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Section: Official Signatures & Approvals */}
+          <div className="pt-3 border-t border-slate-800 space-y-3">
+            <h4 className="text-xs font-bold text-amber-400">بيانات الاعتمادات والتوقيعات الرسمية في التقارير</h4>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700/80">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">المسمى الأول:</label>
+                <input
+                  type="text"
+                  value={formData.approvalTitle1 || 'مهندس الموقع المنفذ'}
+                  onChange={(e) => setFormData({ ...formData, approvalTitle1: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">الاسم الأول:</label>
+                <input
+                  type="text"
+                  value={formData.approvalName1 || 'أحمد هليل الذبياني'}
+                  onChange={(e) => setFormData({ ...formData, approvalName1: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700/80">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">المسمى الثاني:</label>
+                <input
+                  type="text"
+                  value={formData.approvalTitle2 || 'عن الشركة المنفذة'}
+                  onChange={(e) => setFormData({ ...formData, approvalTitle2: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">الاسم أو الشركة الثانية:</label>
+                <input
+                  type="text"
+                  value={formData.approvalName2 || 'شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي — المدينة المنورة'}
+                  onChange={(e) => setFormData({ ...formData, approvalName2: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700/80">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">المسمى الثالث:</label>
+                <input
+                  type="text"
+                  value={formData.approvalTitle3 || 'المكتب الاستشاري'}
+                  onChange={(e) => setFormData({ ...formData, approvalTitle3: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">اسم المكتب الاستشاري:</label>
+                <input
+                  type="text"
+                  value={formData.approvalName3 || 'المكتب الاستشاري للمشروع'}
+                  onChange={(e) => setFormData({ ...formData, approvalName3: e.target.value })}
+                  className="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between pt-4 border-t border-slate-800">
             <button
               type="button"

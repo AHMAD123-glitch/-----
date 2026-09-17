@@ -25,7 +25,26 @@ export default function App() {
   // Persistence state
   const [project, setProject] = useState<ProjectInfo>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PROJECT);
-    return saved ? JSON.parse(saved) : initialProject;
+    if (!saved) return initialProject;
+    try {
+      const parsed = JSON.parse(saved);
+      return {
+        ...initialProject,
+        ...parsed,
+        approvalTitle1: parsed.approvalTitle1 || initialProject.approvalTitle1,
+        approvalName1: parsed.approvalName1 || initialProject.approvalName1,
+        approvalTitle2: parsed.approvalTitle2 || initialProject.approvalTitle2,
+        approvalName2: parsed.approvalName2 || initialProject.approvalName2,
+        approvalTitle3: parsed.approvalTitle3 || initialProject.approvalTitle3,
+        approvalName3: parsed.approvalName3 || initialProject.approvalName3,
+        name: parsed.name && !parsed.name.includes('أبراج الأفق') ? parsed.name : initialProject.name,
+        contractor: parsed.contractor && !parsed.contractor.includes('الركائز') ? parsed.contractor : initialProject.contractor,
+        siteEngineer: parsed.siteEngineer && !parsed.siteEngineer.includes('السعدي') ? parsed.siteEngineer : initialProject.siteEngineer,
+        consultant: parsed.consultant && !parsed.consultant.includes('الرؤية') ? parsed.consultant : initialProject.consultant,
+      };
+    } catch {
+      return initialProject;
+    }
   });
 
   const [workItems, setWorkItems] = useState<WorkItem[]>(() => {
@@ -299,6 +318,10 @@ export default function App() {
         workItems={workItems}
         materials={materials}
         dailyLogs={dailyLogs}
+        onUpdateProject={(updated) => {
+          setProject(updated);
+          showToast('تم حفظ وتحديث بيانات التوقيعات والاعتمادات الرسمية بنجاح');
+        }}
       />
 
       <AddWorkItemModal

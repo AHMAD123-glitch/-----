@@ -64,6 +64,12 @@ export interface ProjectInfo {
   targetEndDate: string;
   totalContractValue: number; // ريال / درهم / جنيه
   currency: string;
+  approvalTitle1?: string;
+  approvalName1?: string;
+  approvalTitle2?: string;
+  approvalName2?: string;
+  approvalTitle3?: string;
+  approvalName3?: string;
 }
 
 export interface DayProgressPoint {

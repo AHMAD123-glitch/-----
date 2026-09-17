@@ -20,4 +20,11 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  #printable-report input,
+  #printable-report textarea {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
 }
