@@ -1,10 +1,5 @@
 import React from 'react';
-import { 
-  ProjectInfo, 
-  WorkItem, 
-  MaterialItem, 
-  DailyLog 
-} from '../types';
+import { ProjectInfo, WorkItem, MaterialItem, DailyLog } from '../types';
 import { 
   calculateProjectMetrics, 
   formatCurrency, 
@@ -20,12 +15,8 @@ import {
 } from '../utils/translations';
 import { 
   ClipboardList, 
-  AlertTriangle, 
-  ShieldCheck, 
   CheckCircle2, 
-  Building2, 
-  HardHat, 
-  FileText 
+  AlertTriangle 
 } from 'lucide-react';
 
 export interface ReportApprovals {
@@ -39,6 +30,8 @@ export interface ReportApprovals {
 
 interface EngineeringReportDocumentProps {
   pageNumber: 1 | 2;
+  innerRef?: React.RefObject<HTMLDivElement>;
+  containerId?: string;
   project: ProjectInfo;
   workItems: WorkItem[];
   materials: MaterialItem[];
@@ -47,12 +40,12 @@ interface EngineeringReportDocumentProps {
   includeFinancials: boolean;
   lang: LanguageMode;
   approvals: ReportApprovals;
-  containerId?: string;
-  innerRef?: React.Ref<HTMLDivElement>;
 }
 
 export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps> = ({
   pageNumber,
+  innerRef,
+  containerId,
   project,
   workItems,
   materials,
@@ -61,8 +54,6 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
   includeFinancials,
   lang,
   approvals,
-  containerId,
-  innerRef,
 }) => {
   const tAr = translations.ar;
   const tEn = translations.en;
@@ -72,6 +63,9 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
   const projectMetrics = calculateProjectMetrics(workItems);
   const latestLog = dailyLogs.length > 0 ? dailyLogs[0] : null;
   const trProject = getTranslatedProjectInfo(project, lang);
+
+  // Identify any materials that are at or below minimum threshold
+  const lowStockMaterials = materials.filter((m) => (m.totalDelivered - m.totalUsed) <= m.minThreshold);
 
   // Helper for approval title display
   const getApprovalTitle = (arTitle: string, index: 1 | 2 | 3) => {
@@ -88,6 +82,9 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
     return `${arName} / ${enDefault}`;
   };
 
+  // ========================================================
+  // PAGE 1: Master Header + Project Info + KPIs + BOQ Table
+  // ========================================================
   if (pageNumber === 1) {
     return (
       <div
@@ -105,138 +102,196 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           color: '#0f172a',
-          padding: '28px 36px 20px 36px',
+          fontFamily: "'Cairo', system-ui, -apple-system, sans-serif",
+          padding: '24px 28px',
           margin: '0 auto',
           position: 'relative',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          overflow: 'hidden',
           flexShrink: 0,
         }}
       >
-        {/* TOP SECTION: Header + Meta + KPIs + BOQ Table */}
+        {/* TOP CONTENT WRAPPER */}
         <div style={{ width: '100%' }}>
-          {/* Official Engineering Header */}
-          <header style={{ borderBottom: '2px solid #0f172a', paddingBottom: '10px', marginBottom: '10px' }}>
+          
+          {/* 1. MASTER HEADER */}
+          <header style={{ borderBottom: '2.5px solid #0f172a', paddingBottom: '10px', marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '17px', fontWeight: 800, color: '#090d16', letterSpacing: '-0.02em' }}>
-                    {lang === 'en' ? tEn.systemTitle : tAr.systemTitle}
-                  </span>
-                  <span style={{ fontSize: '10px', fontWeight: 700, backgroundColor: '#0f172a', color: '#ffffff', padding: '2px 8px', borderRadius: '4px' }}>
-                    {lang === 'en' ? tEn.badge : tAr.badge}
+              
+              {/* Logo / Emblems & Title */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div 
+                  style={{ 
+                    width: '42px', 
+                    height: '42px', 
+                    backgroundColor: '#0f172a', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    color: '#f59e0b',
+                    flexShrink: 0
+                  }}
+                >
+                  <ClipboardList style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h1 style={{ fontSize: '15px', fontWeight: 800, color: '#090d16', margin: 0, lineHeight: 1.2 }}>
+                      {lang === 'en' ? tEn.systemTitle : tAr.systemTitle}
+                    </h1>
+                    <span 
+                      style={{ 
+                        fontSize: '9px', 
+                        fontWeight: 700, 
+                        backgroundColor: '#ecfdf5', 
+                        color: '#047857', 
+                        border: '1px solid #a7f3d0', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                    >
+                      <CheckCircle2 style={{ width: '10px', height: '10px' }} />
+                      <span>{lang === 'bilingual' ? `${tAr.badge} / ${tEn.badge}` : t.badge}</span>
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '9.5px', color: '#475569', margin: '3px 0 0 0', fontWeight: 500, lineHeight: 1.3 }}>
+                    {lang === 'en' ? tEn.systemSubTitle : tAr.systemSubTitle}
+                  </p>
+                </div>
+              </div>
+
+              {/* Meta details box */}
+              <div 
+                style={{ 
+                  textAlign: isRtl ? 'left' : 'right', 
+                  fontSize: '9.5px', 
+                  backgroundColor: '#f8fafc', 
+                  border: '1px solid #cbd5e1', 
+                  padding: '6px 10px', 
+                  borderRadius: '6px',
+                  minWidth: '170px',
+                  flexShrink: 0
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>{t.code}</span>
+                  <span style={{ fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }} dir="ltr">
+                    {project.code}
                   </span>
                 </div>
-                <p style={{ fontSize: '10px', color: '#475569', fontWeight: 600, margin: 0 }}>
-                  {lang === 'en' ? tEn.systemSubTitle : tAr.systemSubTitle}
-                </p>
-                {lang === 'bilingual' && (
-                  <p style={{ fontSize: '9px', color: '#64748b', fontStyle: 'italic', margin: '2px 0 0 0' }} dir="ltr">
-                    {tEn.systemTitle} — {tEn.systemSubTitle}
-                  </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>{t.date}</span>
+                  <span style={{ fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }} dir="ltr">
+                    {reportDate}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>{t.approvalStatus}</span>
+                  <span style={{ fontWeight: 800, color: '#047857' }}>
+                    {t.approvedOfficial}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Sub-Banner Title */}
+            <div 
+              style={{ 
+                marginTop: '8px', 
+                backgroundColor: '#0f172a', 
+                color: '#ffffff', 
+                padding: '5px 12px', 
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                fontWeight: 700
+              }}
+            >
+              <span>
+                {includeFinancials ? (
+                  lang === 'bilingual' 
+                    ? `${tAr.comprehensiveReportTitle} / ${tEn.comprehensiveReportTitle}` 
+                    : t.comprehensiveReportTitle
+                ) : (
+                  lang === 'bilingual'
+                    ? `${tAr.comprehensiveNoPriceReportTitle} / ${tEn.comprehensiveNoPriceReportTitle}`
+                    : t.comprehensiveNoPriceReportTitle
                 )}
-              </div>
-
-              {/* Metadata Card */}
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '6px 10px', fontSize: '9.5px', minWidth: '220px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ color: '#64748b', padding: '2px 0', fontWeight: 600 }}>
-                        {lang === 'bilingual' ? `${tAr.code} / ${tEn.code}` : t.code}:
-                      </td>
-                      <td style={{ fontWeight: 800, color: '#0f172a', textAlign: isRtl ? 'left' : 'right', padding: '2px 0' }}>
-                        <span dir="ltr" className="pdf-tabular-num">{project.code}</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ color: '#64748b', padding: '2px 0', fontWeight: 600 }}>
-                        {lang === 'bilingual' ? `${tAr.date} / ${tEn.date}` : t.date}:
-                      </td>
-                      <td style={{ fontWeight: 600, color: '#1e293b', textAlign: isRtl ? 'left' : 'right', padding: '2px 0' }}>
-                        <span dir="ltr" className="pdf-tabular-num">{reportDate}</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ color: '#64748b', padding: '2px 0', fontWeight: 600 }}>
-                        {lang === 'bilingual' ? `${tAr.approvalStatus} / ${tEn.approvalStatus}` : t.approvalStatus}:
-                      </td>
-                      <td style={{ textAlign: isRtl ? 'left' : 'right', padding: '2px 0' }}>
-                        <span style={{ fontWeight: 800, color: '#065f46', backgroundColor: '#ecfdf5', padding: '2px 6px', borderRadius: '3px', border: '1px solid #a7f3d0', fontSize: '9px' }}>
-                          {lang === 'bilingual' ? `${tAr.approvedOfficial} / ${tEn.approvedOfficial}` : t.approvedOfficial}
-                        </span>
-                      </td>
-                    </tr>
-                    {!includeFinancials && (
-                      <tr>
-                        <td colSpan={2} style={{ paddingTop: '4px', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '8.5px', fontWeight: 700, color: '#b45309' }}>
-                          {lang === 'bilingual' ? `${tAr.technicalOnlyNotice} / ${tEn.technicalOnlyNotice}` : t.technicalOnlyNotice}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              </span>
+              <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: 600 }}>
+                {!includeFinancials && `[ ${t.technicalOnlyNotice} ]`}
+              </span>
             </div>
+          </header>
 
-            {/* Document Title Bar */}
-            <div style={{ marginTop: '8px', textAlign: 'center', padding: '6px 12px', backgroundColor: '#f1f5f9', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-              <h1 style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.3 }}>
-                {includeFinancials ? t.comprehensiveReportTitle : t.comprehensiveNoPriceReportTitle}
-              </h1>
-              {lang === 'bilingual' && (
-                <p style={{ fontSize: '9.5px', fontWeight: 600, color: '#475569', margin: '2px 0 0 0' }} dir="ltr">
-                  {includeFinancials ? tEn.comprehensiveReportTitle : tEn.comprehensiveNoPriceReportTitle}
-                </p>
-              )}
-              <p style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700, margin: '2px 0 0 0' }}>
-                {trProject.name} {trProject.location ? `— ${trProject.location}` : ''}
-              </p>
-            </div>
-
-            {/* Project 4 Core Parameters */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '8px', fontSize: '9.5px' }}>
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '8.5px', fontWeight: 600, marginBottom: '2px' }}>
-                  {lang === 'bilingual' ? `${tAr.projectName} / ${tEn.projectName}` : t.projectName}
+          {/* 2. PROJECT IDENTIFICATION CARD (Full Width 100%) */}
+          <section 
+            style={{ 
+              width: '100%',
+              backgroundColor: '#ffffff', 
+              border: '1px solid #cbd5e1', 
+              borderRadius: '6px', 
+              padding: '8px 12px', 
+              marginBottom: '10px' 
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', fontSize: '9.5px' }}>
+              
+              {/* Project Name */}
+              <div style={{ borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', paddingLeft: isRtl ? '8px' : '0', paddingRight: isRtl ? '0' : '8px' }}>
+                <span style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
+                  {t.projectName}
                 </span>
-                <span style={{ color: '#0f172a', fontWeight: 800, display: 'block', lineHeight: 1.25 }}>
+                <span style={{ fontWeight: 800, color: '#0f172a', display: 'block', lineHeight: 1.3 }}>
                   {trProject.name}
                 </span>
               </div>
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '8.5px', fontWeight: 600, marginBottom: '2px' }}>
-                  {lang === 'bilingual' ? `${tAr.client} / ${tEn.client}` : t.client}
+
+              {/* Client */}
+              <div style={{ borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', paddingLeft: isRtl ? '8px' : '0', paddingRight: isRtl ? '0' : '8px' }}>
+                <span style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
+                  {t.client}
                 </span>
-                <span style={{ color: '#0f172a', fontWeight: 800, display: 'block', lineHeight: 1.25 }}>
+                <span style={{ fontWeight: 700, color: '#1e293b', display: 'block', lineHeight: 1.3 }}>
                   {trProject.client}
                 </span>
               </div>
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '8.5px', fontWeight: 600, marginBottom: '2px' }}>
-                  {lang === 'bilingual' ? `${tAr.contractor} / ${tEn.contractor}` : t.contractor}
+
+              {/* Main Contractor */}
+              <div style={{ borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', paddingLeft: isRtl ? '8px' : '0', paddingRight: isRtl ? '0' : '8px' }}>
+                <span style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
+                  {t.contractor}
                 </span>
-                <span style={{ color: '#0f172a', fontWeight: 800, display: 'block', lineHeight: 1.25 }}>
+                <span style={{ fontWeight: 700, color: '#1e293b', display: 'block', lineHeight: 1.3 }}>
                   {trProject.contractor}
                 </span>
               </div>
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '8.5px', fontWeight: 600, marginBottom: '2px' }}>
-                  {lang === 'bilingual' ? `${tAr.consultant} / ${tEn.consultant}` : t.consultant}
+
+              {/* Consultant */}
+              <div>
+                <span style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
+                  {t.consultant}
                 </span>
-                <span style={{ color: '#0f172a', fontWeight: 800, display: 'block', lineHeight: 1.25 }}>
+                <span style={{ fontWeight: 700, color: '#1e293b', display: 'block', lineHeight: 1.3 }}>
                   {trProject.consultant}
                 </span>
               </div>
             </div>
-          </header>
+          </section>
 
-          {/* Executive KPIs Grid (Exact 722px) */}
-          <section style={{ marginBottom: '10px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: includeFinancials ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '6px' }}>
-              {/* KPI 1: Progress */}
+          {/* 3. EXECUTIVE KPI CARDS (Full Width 100%) */}
+          <section style={{ width: '100%', marginBottom: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: includeFinancials ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '8px' }}>
+              
+              {/* KPI 1: Actual Progress */}
               <div style={{ backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '6px 8px', textAlign: 'center' }}>
                 <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#475569', display: 'block' }}>
                   {lang === 'bilingual' ? `${tAr.actualProgress} / ${tEn.actualProgress}` : t.actualProgress}
@@ -305,9 +360,22 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
             </div>
           </section>
 
-          {/* TABLE 1: Cumulative BOQ Items (Exact 722px Width Layout) */}
-          <section style={{ marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '6px 10px', borderTopLeftRadius: '4px', borderTopRightRadius: '4px' }}>
+          {/* 4. TABLE 1: CUMULATIVE BOQ ITEMS (Spans 100% full width from right to left) */}
+          <section style={{ width: '100%', marginBottom: '8px' }}>
+            
+            {/* Section Bar */}
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: '#f1f5f9', 
+                border: '1px solid #cbd5e1', 
+                padding: '6px 10px', 
+                borderTopLeftRadius: '4px', 
+                borderTopRightRadius: '4px' 
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }}></div>
                 <h2 style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
@@ -319,33 +387,44 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
               </span>
             </div>
 
-            <div style={{ borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', overflow: 'hidden' }}>
-              <table style={{ width: '722px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            {/* Table wrapper */}
+            <div style={{ width: '100%', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: includeFinancials ? '32%' : '41%' }} />
+                  <col style={{ width: '6%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '9%' }} />
+                  {includeFinancials && <col style={{ width: '13%' }} />}
+                </colgroup>
                 <thead>
-                  <tr style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderBottom: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 800 }}>
-                    <th style={{ width: '60px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <tr style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderBottom: '1.5px solid #cbd5e1', fontSize: '9.5px', fontWeight: 800, height: '32px' }}>
+                    <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                       {lang === 'bilingual' ? 'الكود / Code' : t.boqCode}
                     </th>
-                    <th style={{ width: includeFinancials ? '272px' : '362px', padding: '6px 8px', textAlign: isRtl ? 'right' : 'left', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                    <th style={{ padding: '6px 8px', textAlign: isRtl ? 'right' : 'left', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                       {lang === 'bilingual' ? 'بيان وتوصيف الأعمال / Scope Description' : t.boqDescription}
                     </th>
-                    <th style={{ width: '45px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                    <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                       {lang === 'bilingual' ? 'الوحدة / Unit' : t.unit}
                     </th>
-                    <th style={{ width: '65px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                    <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                       {lang === 'bilingual' ? 'المقرر / Plan' : t.plannedQty}
                     </th>
-                    <th style={{ width: '60px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                    <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                       {lang === 'bilingual' ? 'اليوم / Today' : t.todayQty}
                     </th>
-                    <th style={{ width: '65px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                    <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                       {lang === 'bilingual' ? 'المنفذ / Exec' : t.totalExecQty}
                     </th>
-                    <th style={{ width: '65px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? (includeFinancials ? 'none' : 'none') : (includeFinancials ? '1px solid #e2e8f0' : 'none'), borderLeft: isRtl ? (includeFinancials ? '1px solid #e2e8f0' : 'none') : 'none' }}>
+                    <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? (includeFinancials ? 'none' : 'none') : (includeFinancials ? '1px solid #e2e8f0' : 'none'), borderLeft: isRtl ? (includeFinancials ? '1px solid #e2e8f0' : 'none') : 'none' }}>
                       {lang === 'bilingual' ? 'الإنجاز / %' : t.progressPercent}
                     </th>
                     {includeFinancials && (
-                      <th style={{ width: '90px', padding: '6px 4px', textAlign: 'center' }}>
+                      <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
                         {lang === 'bilingual' ? 'القيمة / Value' : t.executedCost}
                       </th>
                     )}
@@ -366,13 +445,18 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
                         key={item.id} 
                         style={{ 
                           backgroundColor: idx % 2 === 1 ? '#f8fafc' : '#ffffff',
-                          borderTop: '1px solid #e2e8f0'
+                          borderTop: '1px solid #e2e8f0',
+                          height: '34px',
+                          minHeight: '34px'
                         }}
                       >
-                        <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, color: '#334155', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+                        {/* Code */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#334155', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                           <span dir="ltr" className="pdf-tabular-num">{item.code}</span>
                         </td>
-                        <td style={{ padding: '5px 8px', textAlign: isRtl ? 'right' : 'left', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', fontWeight: 600, color: '#0f172a', lineHeight: 1.35 }}>
+
+                        {/* Description */}
+                        <td style={{ padding: '5px 8px', textAlign: isRtl ? 'right' : 'left', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
                           {lang === 'bilingual' ? (
                             <div>
                               <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.description}</div>
@@ -384,25 +468,37 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
                             itemDesc
                           )}
                         </td>
-                        <td style={{ padding: '5px 2px', textAlign: 'center', color: '#475569', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                        {/* Unit */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', color: '#475569', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                           {itemUnit}
                         </td>
-                        <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 700, color: '#1e293b', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                        {/* Planned Qty */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, color: '#1e293b', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                           <span dir="ltr" className="pdf-tabular-num">{formatNumber(item.plannedQuantity)}</span>
                         </td>
-                        <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, color: '#b45309', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                        {/* Today Executed */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#b45309', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                           <span dir="ltr" className="pdf-tabular-num">+{formatNumber(item.todayQuantity)}</span>
                         </td>
-                        <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, color: '#0f172a', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                        {/* Total Cumulative Executed */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#0f172a', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                           <span dir="ltr" className="pdf-tabular-num">{formatNumber(totalExec)}</span>
                         </td>
-                        <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, whiteSpace: 'nowrap', borderRight: isRtl ? (includeFinancials ? 'none' : 'none') : (includeFinancials ? '1px solid #e2e8f0' : 'none'), borderLeft: isRtl ? (includeFinancials ? '1px solid #e2e8f0' : 'none') : 'none' }}>
+
+                        {/* Progress % */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, whiteSpace: 'nowrap', borderRight: isRtl ? (includeFinancials ? 'none' : 'none') : (includeFinancials ? '1px solid #e2e8f0' : 'none'), borderLeft: isRtl ? (includeFinancials ? '1px solid #e2e8f0' : 'none') : 'none' }}>
                           <span dir="ltr" className="pdf-tabular-num" style={{ color: percent >= 100 ? '#047857' : '#1d4ed8', fontWeight: 800 }}>
                             {formatNumber(percent, 1)}%
                           </span>
                         </td>
+
+                        {/* Financial Value */}
                         {includeFinancials && (
-                          <td style={{ padding: '5px 4px', textAlign: 'center', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                             <span dir="ltr" className="pdf-tabular-num">{formatCurrency(val, trProject.currency)}</span>
                           </td>
                         )}
@@ -411,18 +507,18 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
                   })}
                 </tbody>
                 <tfoot>
-                  <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 800, fontSize: '9.5px', borderTop: '2px solid #cbd5e1' }}>
-                    <td colSpan={2} style={{ padding: '6px 8px', textAlign: isRtl ? 'right' : 'left', borderRight: isRtl ? 'none' : '1px solid #cbd5e1', borderLeft: isRtl ? '1px solid #cbd5e1' : 'none', color: '#0f172a' }}>
+                  <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 800, fontSize: '9.5px', borderTop: '2px solid #cbd5e1', height: '32px' }}>
+                    <td colSpan={2} style={{ padding: '6px 8px', textAlign: isRtl ? 'right' : 'left', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #cbd5e1', borderLeft: isRtl ? '1px solid #cbd5e1' : 'none', color: '#0f172a' }}>
                       {lang === 'bilingual' ? `${tAr.boqSummaryTitle} / ${tEn.boqSummaryTitle}` : t.boqSummaryTitle}
                     </td>
-                    <td colSpan={4} style={{ padding: '6px 2px', textAlign: 'center', color: '#475569', borderRight: isRtl ? 'none' : '1px solid #cbd5e1', borderLeft: isRtl ? '1px solid #cbd5e1' : 'none' }}>
+                    <td colSpan={4} style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', color: '#475569', borderRight: isRtl ? 'none' : '1px solid #cbd5e1', borderLeft: isRtl ? '1px solid #cbd5e1' : 'none' }}>
                       {workItems.length} {t.engineeringItems}
                     </td>
-                    <td style={{ padding: '6px 2px', textAlign: 'center', fontWeight: 800, color: '#1d4ed8', borderRight: isRtl ? (includeFinancials ? 'none' : 'none') : (includeFinancials ? '1px solid #cbd5e1' : 'none'), borderLeft: isRtl ? (includeFinancials ? '1px solid #cbd5e1' : 'none') : 'none' }}>
+                    <td style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#1d4ed8', borderRight: isRtl ? (includeFinancials ? 'none' : 'none') : (includeFinancials ? '1px solid #cbd5e1' : 'none'), borderLeft: isRtl ? (includeFinancials ? '1px solid #cbd5e1' : 'none') : 'none' }}>
                       <span dir="ltr" className="pdf-tabular-num">{formatNumber(projectMetrics.actualProgressPercent, 1)}%</span>
                     </td>
                     {includeFinancials && (
-                      <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
                         <span dir="ltr" className="pdf-tabular-num">{formatCurrency(projectMetrics.totalExecutedCost, trProject.currency)}</span>
                       </td>
                     )}
@@ -433,7 +529,7 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
           </section>
         </div>
 
-        {/* BOTTOM SECTION: Page 1 Fixed Footer Bar */}
+        {/* 5. PAGE 1 FIXED BOTTOM FOOTER BAR */}
         <footer style={{ width: '100%', paddingTop: '8px', borderTop: '1px solid #cbd5e1', fontSize: '9.5px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
           <div>
             <span>{t.confidentialNotice}</span>
@@ -465,18 +561,20 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
         boxSizing: 'border-box',
         backgroundColor: '#ffffff',
         color: '#0f172a',
-        padding: '28px 36px 20px 36px',
+        fontFamily: "'Cairo', system-ui, -apple-system, sans-serif",
+        padding: '24px 28px',
         margin: '0 auto',
         position: 'relative',
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        overflow: 'hidden',
         flexShrink: 0,
       }}
     >
-      {/* TOP SECTION: Continuity Header + Materials + Daily Log + Sign-offs */}
+      {/* TOP CONTENT WRAPPER */}
       <div style={{ width: '100%' }}>
+        
         {/* Page 2 Continuity Header */}
         <header style={{ borderBottom: '2px solid #0f172a', paddingBottom: '8px', marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -488,16 +586,27 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
                 {trProject.name} — <span dir="ltr" className="pdf-tabular-num">{project.code}</span>
               </span>
             </div>
-            <div style={{ textAlign: 'left', fontSize: '9.5px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '4px' }}>
+            <div style={{ textAlign: isRtl ? 'left' : 'right', fontSize: '9.5px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '4px' }}>
               <span style={{ color: '#64748b', fontWeight: 600 }}>{t.date}: </span>
               <span style={{ fontWeight: 800, color: '#0f172a' }} dir="ltr" className="pdf-tabular-num">{reportDate}</span>
             </div>
           </div>
         </header>
 
-        {/* SECTION 2: Materials & Inventory Table (Exact 722px Width Layout) */}
-        <section style={{ marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '6px 10px', borderTopLeftRadius: '4px', borderTopRightRadius: '4px' }}>
+        {/* SECTION 2: Materials & Inventory Table (Spans 100% full width from right to left) */}
+        <section style={{ width: '100%', marginBottom: '10px' }}>
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              backgroundColor: '#f1f5f9', 
+              border: '1px solid #cbd5e1', 
+              padding: '6px 10px', 
+              borderTopLeftRadius: '4px', 
+              borderTopRightRadius: '4px' 
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#9333ea' }}></div>
               <h2 style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
@@ -509,32 +618,42 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
             </span>
           </div>
 
-          <div style={{ borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', overflow: 'hidden' }}>
-            <table style={{ width: '722px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <div style={{ width: '100%', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '6%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '15%' }} />
+              </colgroup>
               <thead>
-                <tr style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderBottom: '1px solid #cbd5e1', fontSize: '9px', fontWeight: 800 }}>
-                  <th style={{ width: '222px', padding: '6px 8px', textAlign: isRtl ? 'right' : 'left', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                <tr style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderBottom: '1.5px solid #cbd5e1', fontSize: '9.5px', fontWeight: 800, height: '32px' }}>
+                  <th style={{ padding: '6px 8px', textAlign: isRtl ? 'right' : 'left', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'المادة والمواصفة / Material & Spec' : t.materialNameSpec}
                   </th>
-                  <th style={{ width: '45px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'الوحدة / Unit' : t.unit}
                   </th>
-                  <th style={{ width: '75px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'المطلوب / Req.' : t.totalRequired}
                   </th>
-                  <th style={{ width: '75px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'المورّد / Deliv.' : t.totalDelivered}
                   </th>
-                  <th style={{ width: '70px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'مستهلك اليوم / Today' : t.todayConsumed}
                   </th>
-                  <th style={{ width: '75px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'المستهلك / Consumed' : t.totalConsumed}
                   </th>
-                  <th style={{ width: '85px', padding: '6px 2px', textAlign: 'center', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none' }}>
                     {lang === 'bilingual' ? 'المتبقي / Stock' : t.remainingBalance}
                   </th>
-                  <th style={{ width: '75px', padding: '6px 2px', textAlign: 'center' }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
                     {lang === 'bilingual' ? 'الموقف / Status' : t.stockStatus}
                   </th>
                 </tr>
@@ -543,54 +662,78 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
                 {materials.map((mat, idx) => {
                   const remaining = mat.totalDelivered - mat.totalUsed;
                   const isLow = remaining <= mat.minThreshold;
-                  const matName = getTranslatedMaterialName(mat.name, lang);
                   const matUnit = getTranslatedUnit(mat.unit, lang);
+                  const enMaterialName = getTranslatedMaterialName(mat.name, 'en');
 
                   return (
                     <tr 
                       key={mat.id}
                       style={{ 
-                        backgroundColor: idx % 2 === 1 ? '#f8fafc' : '#ffffff',
-                        borderTop: '1px solid #e2e8f0'
+                        backgroundColor: isLow ? '#fff7ed' : (idx % 2 === 1 ? '#f8fafc' : '#ffffff'),
+                        borderTop: '1px solid #e2e8f0',
+                        height: '34px',
+                        minHeight: '34px'
                       }}
                     >
-                      <td style={{ padding: '5px 8px', textAlign: isRtl ? 'right' : 'left', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', fontWeight: 600, color: '#0f172a', lineHeight: 1.35 }}>
-                        {lang === 'bilingual' ? (
+                      {/* Material Name - Pure, clear Arabic or English, never corrupted */}
+                      <td style={{ padding: '5px 8px', textAlign: isRtl ? 'right' : 'left', verticalAlign: 'middle', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
+                        {lang === 'ar' ? (
+                          <span style={{ fontWeight: 700, color: '#0f172a' }}>{mat.name}</span>
+                        ) : lang === 'en' ? (
+                          <span style={{ fontWeight: 700, color: '#0f172a' }}>{enMaterialName}</span>
+                        ) : (
                           <div>
                             <div style={{ fontWeight: 700, color: '#0f172a' }}>{mat.name}</div>
                             <div style={{ fontSize: '8.5px', color: '#64748b', fontStyle: 'italic' }} dir="ltr">
-                              {getTranslatedMaterialName(mat.name, 'en')}
+                              {enMaterialName}
                             </div>
                           </div>
-                        ) : (
-                          matName
                         )}
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', color: '#475569', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                      {/* Unit */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', color: '#475569', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                         {matUnit}
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 700, color: '#1e293b', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                      {/* Total Required */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, color: '#1e293b', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                         <span dir="ltr" className="pdf-tabular-num">{formatNumber(mat.totalRequired)}</span>
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, color: '#1e3a8a', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                      {/* Total Delivered */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#1e3a8a', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                         <span dir="ltr" className="pdf-tabular-num">{formatNumber(mat.totalDelivered)}</span>
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, color: '#7e22ce', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                      {/* Today Consumed */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: '#7e22ce', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                         <span dir="ltr" className="pdf-tabular-num">{formatNumber(mat.todayUsed)}</span>
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 700, color: '#1e293b', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                      {/* Total Consumed */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, color: '#1e293b', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                         <span dir="ltr" className="pdf-tabular-num">{formatNumber(mat.totalUsed)}</span>
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', fontWeight: 800, color: '#0f172a', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
+
+                      {/* Remaining Stock */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, color: isLow ? '#b91c1c' : '#0f172a', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', whiteSpace: 'nowrap' }}>
                         <span dir="ltr" className="pdf-tabular-num">{formatNumber(remaining)}</span>
                       </td>
-                      <td style={{ padding: '5px 2px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+
+                      {/* Status & Safety Threshold Badge */}
+                      <td style={{ padding: '5px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
                         {isLow ? (
-                          <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#be123c', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '2px 4px', borderRadius: '3px' }}>
-                            {lang === 'bilingual' ? `${tAr.stockShortage} / ${tEn.stockShortage}` : t.stockShortage}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                            <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#be123c', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '1.5px 5px', borderRadius: '3px', whiteSpace: 'nowrap' }}>
+                              {lang === 'bilingual' ? '⚠️ نقص بالمخزون' : '⚠️ تنبيه مخزون منخفض'}
+                            </span>
+                            <span style={{ fontSize: '8px', color: '#991b1b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              {lang === 'en' ? `Min: ${formatNumber(mat.minThreshold)}` : `حد الطلب: ${formatNumber(mat.minThreshold)} ${mat.unit}`}
+                            </span>
+                          </div>
                         ) : (
-                          <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#047857', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 4px', borderRadius: '3px' }}>
+                          <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#047857', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>
                             {lang === 'bilingual' ? `${tAr.stockAdequate} / ${tEn.stockAdequate}` : t.stockAdequate}
                           </span>
                         )}
@@ -601,12 +744,62 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
               </tbody>
             </table>
           </div>
+
+          {/* LOW STOCK ACTION BANNER (Fills the requirement of complete Low Stock Alert data) */}
+          {lowStockMaterials.length > 0 && (
+            <div 
+              style={{ 
+                marginTop: '6px', 
+                backgroundColor: '#fffbeb', 
+                border: '1px solid #fde68a', 
+                borderRight: isRtl ? '4px solid #d97706' : '1px solid #fde68a',
+                borderLeft: isRtl ? '1px solid #fde68a' : '4px solid #d97706',
+                borderRadius: '4px', 
+                padding: '5px 10px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                fontSize: '9px',
+                color: '#92400e'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertTriangle style={{ width: '13px', height: '13px', color: '#d97706', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontWeight: 800, color: '#b45309' }}>
+                    {lang === 'en' ? 'Low Stock Alert & Immediate Procurement Action:' : 'تنبيه مخزون منخفض وإجراء التوريد الفوري:'}
+                  </span>
+                  <span style={{ margin: '0 4px', fontWeight: 600 }}>
+                    {lowStockMaterials.map(m => (
+                      lang === 'en' 
+                        ? `${getTranslatedMaterialName(m.name, 'en')} (Available: ${formatNumber(m.totalDelivered - m.totalUsed)} ${m.unit} | Min Required Buffer: ${formatNumber(m.minThreshold)} ${m.unit})`
+                        : `مادة (${m.name}) الرصيد الحالي بالموقع (${formatNumber(m.totalDelivered - m.totalUsed)} ${m.unit}) — أقل من حد الأمان الأدنى (${formatNumber(m.minThreshold)} ${m.unit}).`
+                    )).join(' | ')}
+                  </span>
+                </div>
+              </div>
+              <span style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', color: '#b45309', fontWeight: 800, padding: '2px 6px', borderRadius: '3px', whiteSpace: 'nowrap', fontSize: '8.5px' }}>
+                {lang === 'en' ? 'Urgent PO' : 'أمر توريد عاجل'}
+              </span>
+            </div>
+          )}
         </section>
 
         {/* SECTION 3: Field Daily Logs & Observations */}
         {latestLog && (
-          <section style={{ marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '6px 10px', borderTopLeftRadius: '4px', borderTopRightRadius: '4px' }}>
+          <section style={{ width: '100%', marginBottom: '10px' }}>
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: '#f1f5f9', 
+                border: '1px solid #cbd5e1', 
+                padding: '6px 10px', 
+                borderTopLeftRadius: '4px', 
+                borderTopRightRadius: '4px' 
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#2563eb' }}></div>
                 <h2 style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
@@ -618,114 +811,119 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
               </span>
             </div>
 
-            <div style={{ borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '8px 10px', backgroundColor: '#f8fafc', borderBottomLeftRadius: '4px', borderBottomRightRadius: '4px', fontSize: '9.5px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {/* Progress Summary */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0f172a', fontWeight: 800, marginBottom: '2px', paddingBottom: '2px', borderBottom: '1px solid #f1f5f9', fontSize: '10px' }}>
-                  <ClipboardList style={{ width: '12px', height: '12px', color: '#2563eb' }} />
-                  <span>{lang === 'bilingual' ? `${tAr.progressBlockTitle} / ${tEn.progressBlockTitle}` : t.progressBlockTitle}</span>
-                </div>
-                <p style={{ color: '#1e293b', lineHeight: 1.4, margin: 0 }}>
-                  {latestLog.summary}
-                </p>
-                {lang === 'bilingual' && (
-                  <p style={{ color: '#64748b', lineHeight: 1.35, fontSize: '8.5px', fontStyle: 'italic', margin: '2px 0 0 0' }} dir="ltr">
-                    Site execution accomplished as scheduled with quality inspections conducted and approved.
+            <div 
+              style={{ 
+                width: '100%',
+                backgroundColor: '#ffffff', 
+                borderLeft: '1px solid #cbd5e1', 
+                borderRight: '1px solid #cbd5e1', 
+                borderBottom: '1px solid #cbd5e1', 
+                padding: '8px 10px', 
+                borderBottomLeftRadius: '4px', 
+                borderBottomRightRadius: '4px' 
+              }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px', fontSize: '9px' }}>
+                
+                {/* 1: Summary of Works */}
+                <div style={{ borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', paddingLeft: isRtl ? '8px' : '0', paddingRight: isRtl ? '0' : '8px' }}>
+                  <span style={{ fontWeight: 800, color: '#1e3a8a', display: 'block', marginBottom: '2px' }}>
+                    {t.progressBlockTitle}
+                  </span>
+                  <p style={{ color: '#334155', margin: 0, lineHeight: 1.35 }}>
+                    {latestLog.summary}
                   </p>
-                )}
-              </div>
+                </div>
 
-              {/* Obstacles & Corrective Actions */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0f172a', fontWeight: 800, marginBottom: '2px', paddingBottom: '2px', borderBottom: '1px solid #f1f5f9', fontSize: '10px' }}>
-                  <AlertTriangle style={{ width: '12px', height: '12px', color: '#d97706' }} />
-                  <span>{lang === 'bilingual' ? `${tAr.obstaclesBlockTitle} / ${tEn.obstaclesBlockTitle}` : t.obstaclesBlockTitle}</span>
-                </div>
-                <p style={{ color: '#1e293b', lineHeight: 1.4, margin: 0 }}>
-                  {latestLog.obstacles || t.obstaclesDefault}
-                </p>
-                {lang === 'bilingual' && (
-                  <p style={{ color: '#64748b', lineHeight: 1.35, fontSize: '8.5px', fontStyle: 'italic', margin: '2px 0 0 0' }} dir="ltr">
-                    {tEn.obstaclesDefault}
+                {/* 2: Obstacles & Mitigations */}
+                <div style={{ borderLeft: isRtl ? '1px solid #e2e8f0' : 'none', borderRight: isRtl ? 'none' : '1px solid #e2e8f0', paddingLeft: isRtl ? '8px' : '0', paddingRight: isRtl ? '0' : '8px' }}>
+                  <span style={{ fontWeight: 800, color: '#b45309', display: 'block', marginBottom: '2px' }}>
+                    {t.obstaclesBlockTitle}
+                  </span>
+                  <p style={{ color: '#334155', margin: 0, lineHeight: 1.35 }}>
+                    {latestLog.obstacles || t.obstaclesDefault}
                   </p>
-                )}
-              </div>
+                </div>
 
-              {/* Safety & Quality Protocols */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '6px 8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0f172a', fontWeight: 800, marginBottom: '2px', paddingBottom: '2px', borderBottom: '1px solid #f1f5f9', fontSize: '10px' }}>
-                  <ShieldCheck style={{ width: '12px', height: '12px', color: '#059669' }} />
-                  <span>{lang === 'bilingual' ? `${tAr.hseBlockTitle} / ${tEn.hseBlockTitle}` : t.hseBlockTitle}</span>
-                </div>
-                <p style={{ color: '#1e293b', lineHeight: 1.4, margin: 0 }}>
-                  {latestLog.safetyNotes || t.hseDefault}
-                </p>
-                {lang === 'bilingual' && (
-                  <p style={{ color: '#64748b', lineHeight: 1.35, fontSize: '8.5px', fontStyle: 'italic', margin: '2px 0 0 0' }} dir="ltr">
-                    {tEn.hseDefault}
+                {/* 3: HSE & Quality */}
+                <div>
+                  <span style={{ fontWeight: 800, color: '#047857', display: 'block', marginBottom: '2px' }}>
+                    {t.hseBlockTitle}
+                  </span>
+                  <p style={{ color: '#334155', margin: 0, lineHeight: 1.35 }}>
+                    {latestLog.safetyNotes || t.hseDefault}
                   </p>
-                )}
+                </div>
               </div>
             </div>
           </section>
         )}
 
-        {/* SECTION 4: Official 3-Party Approvals & Signatures */}
-        <section style={{ marginTop: '10px', paddingTop: '8px', borderTop: '2px solid #0f172a' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', textAlign: 'center' }}>
-            {lang === 'bilingual' ? `${tAr.approvalsSectionTitle} / ${tEn.approvalsSectionTitle}` : t.approvalsSectionTitle}
+        {/* SECTION 4: Official Project Sign-offs & Certifications */}
+        <section style={{ width: '100%', marginBottom: '8px' }}>
+          <div 
+            style={{ 
+              backgroundColor: '#f1f5f9', 
+              border: '1px solid #cbd5e1', 
+              padding: '6px 10px', 
+              borderTopLeftRadius: '4px', 
+              borderTopRightRadius: '4px' 
+            }}
+          >
+            <h2 style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              {lang === 'bilingual' ? `${tAr.approvalsSectionTitle} / ${tEn.approvalsSectionTitle}` : t.approvalsSectionTitle}
+            </h2>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center', fontSize: '9.5px' }}>
-            {/* Approval 1: Resident Engineer */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '8px', minHeight: '115px' }}>
-              <div>
-                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '10.5px' }}>
+          <div 
+            style={{ 
+              width: '100%',
+              backgroundColor: '#ffffff', 
+              borderLeft: '1px solid #cbd5e1', 
+              borderRight: '1px solid #cbd5e1', 
+              borderBottom: '1px solid #cbd5e1', 
+              padding: '10px 12px', 
+              borderBottomLeftRadius: '4px', 
+              borderBottomRightRadius: '4px' 
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+              
+              {/* Approval 1 */}
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '8px 10px', textAlign: 'center', backgroundColor: '#fafafa' }}>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', display: 'block' }}>
                   {getApprovalTitle(approvals.approvalTitle1, 1)}
-                </div>
-                <div style={{ color: '#334155', marginTop: '2px', fontSize: '9.5px', fontWeight: 600 }}>
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', display: 'block', margin: '4px 0 16px 0' }}>
                   {getApprovalName(approvals.approvalName1, 1)}
-                </div>
-              </div>
-              <div style={{ width: '100%', marginTop: '12px' }}>
-                <div style={{ borderBottom: '2px dashed #94a3b8', width: '110px', margin: '0 auto' }}></div>
-                <div style={{ fontSize: '8.5px', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+                </span>
+                <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '4px', fontSize: '8.5px', color: '#64748b' }}>
                   {t.signAndStamp}
                 </div>
               </div>
-            </div>
 
-            {/* Approval 2: Contractor Rep */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '8px', minHeight: '115px' }}>
-              <div>
-                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '10.5px' }}>
+              {/* Approval 2 */}
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '8px 10px', textAlign: 'center', backgroundColor: '#fafafa' }}>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', display: 'block' }}>
                   {getApprovalTitle(approvals.approvalTitle2, 2)}
-                </div>
-                <div style={{ color: '#334155', marginTop: '2px', fontSize: '9.5px', fontWeight: 600 }}>
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', display: 'block', margin: '4px 0 16px 0' }}>
                   {getApprovalName(approvals.approvalName2, 2)}
-                </div>
-              </div>
-              <div style={{ width: '100%', marginTop: '12px' }}>
-                <div style={{ borderBottom: '2px dashed #94a3b8', width: '110px', margin: '0 auto' }}></div>
-                <div style={{ fontSize: '8.5px', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+                </span>
+                <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '4px', fontSize: '8.5px', color: '#64748b' }}>
                   {t.signAndStamp}
                 </div>
               </div>
-            </div>
 
-            {/* Approval 3: Supervising Consultant */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '8px', minHeight: '115px' }}>
-              <div>
-                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '10.5px' }}>
+              {/* Approval 3 */}
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', padding: '8px 10px', textAlign: 'center', backgroundColor: '#fafafa' }}>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', display: 'block' }}>
                   {getApprovalTitle(approvals.approvalTitle3, 3)}
-                </div>
-                <div style={{ color: '#334155', marginTop: '2px', fontSize: '9.5px', fontWeight: 600 }}>
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', display: 'block', margin: '4px 0 16px 0' }}>
                   {getApprovalName(approvals.approvalName3, 3)}
-                </div>
-              </div>
-              <div style={{ width: '100%', marginTop: '12px' }}>
-                <div style={{ borderBottom: '2px dashed #94a3b8', width: '110px', margin: '0 auto' }}></div>
-                <div style={{ fontSize: '8.5px', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>
+                </span>
+                <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '4px', fontSize: '8.5px', color: '#64748b' }}>
                   {t.signAndStamp}
                 </div>
               </div>
@@ -734,7 +932,7 @@ export const EngineeringReportDocument: React.FC<EngineeringReportDocumentProps>
         </section>
       </div>
 
-      {/* BOTTOM SECTION: Page 2 Fixed Footer Bar */}
+      {/* PAGE 2 FIXED BOTTOM FOOTER BAR */}
       <footer style={{ width: '100%', paddingTop: '8px', borderTop: '1px solid #cbd5e1', fontSize: '9.5px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
         <div>
           <span>{t.confidentialNotice}</span>

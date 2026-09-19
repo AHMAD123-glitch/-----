@@ -247,6 +247,40 @@ export const itemTranslations: Record<string, { enDesc: string; enUnit: string }
 
 // Material names translations dictionary
 export const materialTranslations: Record<string, { enName: string; enUnit: string }> = {
+  // Exact names from defaultData
+  'حديد تسليح سابك (أقطار مختلفة 8-25 ملم)': {
+    enName: 'SABIC Steel Rebar (8-25mm Assorted Diameters)',
+    enUnit: 'ton',
+  },
+  'خرسانة جاهزة C35 مقاوم للكبريتات SRC': {
+    enName: 'Ready-Mix Concrete C35 (Sulfate Resistant SRC)',
+    enUnit: 'm³',
+  },
+  'إسمنت بورتلاندي عادي (أكياس 50 كجم)': {
+    enName: 'Ordinary Portland Cement (50kg Bags)',
+    enUnit: 'bags',
+  },
+  'رمل أحمر مغسول ناعم للبناء واللياسة': {
+    enName: 'Washed Red Sand for Plaster & Masonry',
+    enUnit: 'm³',
+  },
+  'طابوق إسمنتي بركاني معزول (20×20×40)': {
+    enName: 'Insulated Volcanic Concrete Blocks (20x20x40 cm)',
+    enUnit: 'nos.',
+  },
+  'طابوق إسمنتي بركاني معزول (20x20x40)': {
+    enName: 'Insulated Volcanic Concrete Blocks (20x20x40 cm)',
+    enUnit: 'nos.',
+  },
+  'لفائف ممبرين عازل مائي 4 ملم بوليستر': {
+    enName: 'Waterproofing Membrane 4mm Polyester',
+    enUnit: 'rolls',
+  },
+  'مواسير صرف UPVC ضغط عالي قطر 6 بوصة': {
+    enName: 'Heavy-Duty UPVC Drainage Pipes (6 inch)',
+    enUnit: 'l.m.',
+  },
+  // Alternative names & additions
   'خرسانة جاهزة C35 مقاومة للأملاح': {
     enName: 'Ready-Mix Concrete C35 (Sulfate Resistant)',
     enUnit: 'm³',
@@ -264,7 +298,7 @@ export const materialTranslations: Record<string, { enName: string; enUnit: stri
     enUnit: 'm²',
   },
   'بلوك أسمنتي مفرغ 20×20×40 سم': {
-    enName: 'Hollow Concrete Blocks (20×20×40 cm)',
+    enName: 'Hollow Concrete Blocks (20x20x40 cm)',
     enUnit: 'nos.',
   },
   'أنابيب صرف UPVC ضغط عالي 4 بوصة': {
@@ -288,6 +322,8 @@ export const unitTranslations: Record<string, string> = {
   'طن': 'ton',
   'كجم': 'kg',
   'عدد': 'nos.',
+  'حبة': 'nos.',
+  'رول': 'rolls',
   'نقطة': 'pt.',
   'مقطوعية': 'lump sum',
   'كيس': 'bags',
@@ -309,11 +345,29 @@ export function getTranslatedItemDesc(code: string, originalDesc: string, lang: 
 }
 
 export function getTranslatedMaterialName(originalName: string, lang: LanguageMode): string {
-  const tr = materialTranslations[originalName];
-  if (!tr) return originalName;
-  if (lang === 'en') return tr.enName;
-  if (lang === 'bilingual') return `${originalName} / ${tr.enName}`;
-  return originalName;
+  // Normalize string for lookup
+  const cleanKey = originalName.trim();
+  const tr = materialTranslations[cleanKey];
+
+  if (tr) {
+    if (lang === 'en') return tr.enName;
+    if (lang === 'bilingual') return `${cleanKey} / ${tr.enName}`;
+    return cleanKey;
+  }
+
+  // Fallback fuzzy search if key contains common keywords
+  if (lang === 'en') {
+    if (cleanKey.includes('حديد تسليح')) return 'Steel Rebar (Assorted Diameters)';
+    if (cleanKey.includes('خرسانة جاهزة')) return 'Ready-Mix Concrete';
+    if (cleanKey.includes('إسمنت') || cleanKey.includes('أسمنت')) return 'Portland Cement Bags';
+    if (cleanKey.includes('رمل')) return 'Washed Sand Aggregate';
+    if (cleanKey.includes('طابوق') || cleanKey.includes('بلوك') || cleanKey.includes('بلك')) return 'Concrete Masonry Blocks';
+    if (cleanKey.includes('ممبرين') || cleanKey.includes('عزل')) return 'Waterproofing Membrane';
+    if (cleanKey.includes('مواسير') || cleanKey.includes('أنابيب')) return 'Drainage Pipes';
+    return cleanKey;
+  }
+
+  return cleanKey;
 }
 
 export function getTranslatedProjectInfo(project: {
