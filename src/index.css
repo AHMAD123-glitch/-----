@@ -6,31 +6,46 @@
   }
 }
 
-/* Base print and report container rules */
+/* ========================================================
+   BASE A4 ENGINEERING DOCUMENT PAGE RULES
+   Exact A4 Ratio at 96 DPI: 794px x 1123px (210mm x 297mm)
+   ======================================================== */
 .pdf-a4-page {
-  width: 794px;
-  min-width: 794px;
-  max-width: 794px;
-  height: 1123px;
-  min-height: 1123px;
-  max-height: 1123px;
-  box-sizing: border-box;
+  width: 794px !important;
+  min-width: 794px !important;
+  max-width: 794px !important;
+  height: 1123px !important;
+  min-height: 1123px !important;
+  max-height: 1123px !important;
+  box-sizing: border-box !important;
   background-color: #ffffff !important;
   color: #0f172a !important;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 32px 36px 28px 36px;
-  margin: 0 auto;
-  overflow: hidden;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  padding: 30px 36px 24px 36px !important;
+  margin: 0 auto !important;
+  overflow: hidden !important;
   letter-spacing: 0 !important;
   word-spacing: normal !important;
+  flex-shrink: 0 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .pdf-a4-page * {
   letter-spacing: 0 !important;
-  font-feature-settings: "liga" 1, "calt" 1 !important;
+  font-feature-settings: "liga" 1, "calt" 1, "tnum" 1 !important;
+  box-sizing: border-box;
+}
+
+.pdf-tabular-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1 !important;
+  direction: ltr !important;
+  display: inline-block !important;
 }
 
 @page {
@@ -38,8 +53,10 @@
   margin: 0;
 }
 
+/* ========================================================
+   PRINT STYLES FOR NATIVE BROWSER PRINT / SAVE AS PDF
+   ======================================================== */
 @media print {
-  /* Complete isolation of the report for printing */
   html, body {
     width: 100% !important;
     height: auto !important;
@@ -52,15 +69,17 @@
     overflow: visible !important;
   }
 
-  /* Hide app header, main dashboard, toasts, and buttons */
+  /* Hide UI elements */
   .no-print,
   #app-header,
   #app-main-content,
-  #toast-notification {
+  #toast-notification,
+  #pdf-modal-toolbar,
+  #pdf-offscreen-render-container {
     display: none !important;
   }
 
-  /* Reset modal wrapper so it doesn't clip pages */
+  /* Remove modal wrappers */
   .pdf-modal-backdrop {
     position: static !important;
     background: #ffffff !important;
@@ -71,6 +90,7 @@
     display: block !important;
     width: 100% !important;
     height: auto !important;
+    inset: auto !important;
   }
 
   .pdf-modal-card {
@@ -82,6 +102,9 @@
     max-height: none !important;
     overflow: visible !important;
     border-radius: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .pdf-modal-scroll-area {
@@ -91,37 +114,35 @@
     background: #ffffff !important;
     display: block !important;
     gap: 0 !important;
+    transform: none !important;
   }
 
   .pdf-a4-page {
     width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
     height: 297mm !important;
     min-height: 297mm !important;
     max-height: 297mm !important;
     page-break-after: always !important;
     break-after: page !important;
-    padding: 12mm 14mm 10mm 14mm !important;
+    padding: 10mm 12mm 10mm 12mm !important;
     box-shadow: none !important;
     border: none !important;
     margin: 0 auto !important;
     overflow: hidden !important;
     background-color: #ffffff !important;
+    box-sizing: border-box !important;
   }
 
   .pdf-a4-page:last-child {
-    page-break-after: auto !important;
-    break-after: auto !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   .print-break-inside-avoid {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
-
-  input, textarea {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-  }
 }
+
