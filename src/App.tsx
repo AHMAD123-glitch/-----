@@ -151,7 +151,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased">
       {/* Toast notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 left-5 z-50 bg-amber-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 text-xs animate-in fade-in slide-in-from-bottom-3 no-print">
+        <div id="toast-notification" className="fixed bottom-5 left-5 z-50 bg-amber-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 text-xs animate-in fade-in slide-in-from-bottom-3 no-print">
           <CheckCircle className="w-4 h-4" />
           <span>{toastMessage}</span>
         </div>
@@ -170,7 +170,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main id="app-main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 no-print">
         {/* KPI Top Summary Cards */}
         <SummaryCards
           project={project}
