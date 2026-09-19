@@ -2,10 +2,17 @@ import React, { useRef, useState, useEffect } from 'react';
 import { ProjectInfo, WorkItem, MaterialItem, DailyLog } from '../types';
 import { 
   calculateProjectMetrics, 
-  calculateMaterialMetrics, 
   formatCurrency, 
   formatNumber 
 } from '../utils/calculations';
+import { 
+  translations, 
+  LanguageMode, 
+  getTranslatedUnit, 
+  getTranslatedItemDesc, 
+  getTranslatedMaterialName,
+  getTranslatedProjectInfo 
+} from '../utils/translations';
 import { 
   FileDown, 
   Printer, 
@@ -19,7 +26,9 @@ import {
   RotateCcw,
   ShieldCheck,
   AlertTriangle,
-  ClipboardList
+  ClipboardList,
+  Languages,
+  Check
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
@@ -43,17 +52,20 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
   dailyLogs,
   onUpdateProject,
 }) => {
-  const printAreaRef = useRef<HTMLDivElement>(null);
+  const page1Ref = useRef<HTMLDivElement>(null);
+  const page2Ref = useRef<HTMLDivElement>(null);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportDate, setReportDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
   const [reportType, setReportType] = useState<'comprehensive' | 'daily'>('comprehensive');
-
-  // Option 1: Checkbox for including prices/financials (Default TRUE)
   const [includeFinancials, setIncludeFinancials] = useState<boolean>(true);
+  
+  // Language Support: 'ar' | 'en' | 'bilingual'
+  const [lang, setLang] = useState<LanguageMode>('ar');
 
-  // Option 2: Signatures state with defaults
+  // Signatures state
   const [showSignaturesEditor, setShowSignaturesEditor] = useState<boolean>(false);
   
   const [approvalTitle1, setApprovalTitle1] = useState<string>(
@@ -67,7 +79,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
     project.approvalTitle2 || 'عن الشركة المنفذة'
   );
   const [approvalName2, setApprovalName2] = useState<string>(
-    project.approvalName2 || 'شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي — المدينة المنورة'
+    project.approvalName2 || 'شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي'
   );
 
   const [approvalTitle3, setApprovalTitle3] = useState<string>(
@@ -77,7 +89,6 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
     project.approvalName3 || 'المكتب الاستشاري للمشروع'
   );
 
-  // Keep state updated when project prop updates
   useEffect(() => {
     if (project.approvalTitle1) setApprovalTitle1(project.approvalTitle1);
     if (project.approvalName1) setApprovalName1(project.approvalName1);
@@ -89,9 +100,14 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
 
   if (!isOpen) return null;
 
+  const t = translations[lang === 'en' ? 'en' : 'ar'];
+  const tAr = translations.ar;
+  const tEn = translations.en;
+  const isRtl = lang !== 'en';
+
   const projectMetrics = calculateProjectMetrics(workItems);
-  const materialMetrics = calculateMaterialMetrics(materials);
   const latestLog = dailyLogs[dailyLogs.length - 1];
+  const trProject = getTranslatedProjectInfo(project, lang);
 
   const handleSaveSignatures = () => {
     if (onUpdateProject) {
@@ -112,51 +128,51 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
     setApprovalTitle1('مهندس الموقع المنفذ');
     setApprovalName1('أحمد هليل الذبياني');
     setApprovalTitle2('عن الشركة المنفذة');
-    setApprovalName2('شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي — المدينة المنورة');
+    setApprovalName2('شركة إيكاد — مشروع تطوير مطار الأمير محمد بن عبدالعزيز الدولي');
     setApprovalTitle3('المكتب الاستشاري');
     setApprovalName3('المكتب الاستشاري للمشروع');
   };
 
+  // High precision page-by-page PDF generation
   const handleDownloadPdf = async () => {
-    if (!printAreaRef.current) return;
+    if (!page1Ref.current || !page2Ref.current) return;
 
     try {
       setIsGenerating(true);
-      const element = printAreaRef.current;
 
-      // High-resolution canvas capture with native dimensions
-      const canvas = await html2canvas(element, {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+
+      // Capture Page 1
+      const canvas1 = await html2canvas(page1Ref.current, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
       });
+      const img1 = canvas1.toDataURL('image/jpeg', 0.98);
+      pdf.addImage(img1, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
+      // Capture Page 2
+      const canvas2 = await html2canvas(page2Ref.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
       });
+      const img2 = canvas2.toDataURL('image/jpeg', 0.98);
+      pdf.addPage();
+      pdf.addImage(img2, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      let position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-
-      let remainingHeight = pdfHeight - pageHeight;
-
-      // Handle multi-page without offset drift
-      while (remainingHeight > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-        remainingHeight -= pageHeight;
-      }
-
-      const fileName = `تقرير_هندسي_${project.code}_${reportDate}.pdf`;
+      const prefix = lang === 'en' ? 'Engineering_Report' : 'تقرير_هندسي';
+      const fileName = `${prefix}_${project.code}_${reportDate}.pdf`;
       pdf.save(fileName);
     } catch (err) {
       console.error('Error generating PDF:', err);
@@ -170,12 +186,29 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
     window.print();
   };
 
+  // Helper for approval title display based on language
+  const getApprovalTitle = (arTitle: string, index: 1 | 2 | 3) => {
+    if (lang === 'ar') return arTitle;
+    const enDefault = index === 1 ? tEn.defaultApprovalTitle1 : index === 2 ? tEn.defaultApprovalTitle2 : tEn.defaultApprovalTitle3;
+    if (lang === 'en') return enDefault;
+    return `${arTitle} / ${enDefault}`;
+  };
+
+  const getApprovalName = (arName: string, index: 1 | 2 | 3) => {
+    if (lang === 'ar') return arName;
+    const enDefault = index === 1 ? tEn.defaultApprovalName1 : index === 2 ? tEn.defaultApprovalName2 : tEn.defaultApprovalName3;
+    if (lang === 'en') return enDefault;
+    return `${arName} / ${enDefault}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[96vh] overflow-hidden">
         
-        {/* Modal Top Control Bar (Non-printed) */}
-        <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-col gap-3 no-print">
+        {/* ========================================================
+            TOP TOOLBAR / CONTROL BAR (Non-printed)
+           ======================================================== */}
+        <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-col gap-3.5 no-print">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/30">
@@ -185,11 +218,11 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <span>تصدير وطباعة التقرير الهندسي المعتمد (PDF)</span>
                   <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                    نسخة منسقة
+                    A4 معتمد (صفحتين)
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  تنسيق منظم ومنفصل للعناوين والجداول والفقرات والبيانات
+                  تنسيق منظم يمنع تقطيع الجداول مع ترقيم ثابت للصفحات ودعم كامل للغتين
                 </p>
               </div>
             </div>
@@ -209,32 +242,11 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 {showSignaturesEditor ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
 
-              <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setReportType('comprehensive')}
-                  className={`px-2.5 py-1 rounded font-medium transition ${
-                    reportType === 'comprehensive' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  تقرير شامل
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReportType('daily')}
-                  className={`px-2.5 py-1 rounded font-medium transition ${
-                    reportType === 'daily' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'
-                  }`}
-                >
-                  تقرير يومي
-                </button>
-              </div>
-
               <button
                 id="btn-trigger-print"
                 type="button"
                 onClick={handlePrint}
-                title="طباعة مباشرة أو حفظ بتنسيق PDF من المتصفح"
+                title="طباعة المستند مباشرة أو تصديره إلى PDF من المتصفح"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
               >
                 <Printer className="w-4 h-4 text-slate-400" />
@@ -251,7 +263,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>جاري التجهيز...</span>
+                    <span>جاري التصدير...</span>
                   </>
                 ) : (
                   <>
@@ -271,53 +283,76 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
             </div>
           </div>
 
-          {/* Option Bar: Customization and Checkbox */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-slate-800/80">
+          {/* Options Row: Language Selection & Financial Checkbox */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+            {/* Bilingual Controls */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 flex items-center gap-1">
+                <Languages className="w-3.5 h-3.5 text-amber-400" />
+                <span>لغة التقرير:</span>
+              </span>
+              <div className="inline-flex items-center p-1 bg-slate-800 rounded-lg border border-slate-700 gap-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setLang('ar')}
+                  className={`px-2.5 py-1 rounded transition font-medium ${
+                    lang === 'ar' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  العربية
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang('en')}
+                  className={`px-2.5 py-1 rounded transition font-medium ${
+                    lang === 'en' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang('bilingual')}
+                  className={`px-2.5 py-1 rounded transition font-medium ${
+                    lang === 'bilingual' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  ثنائي اللغة (Bilingual)
+                </button>
+              </div>
+            </div>
+
+            {/* Financials Toggle & Report Date */}
             <div className="flex items-center gap-4">
               <label 
-                id="checkbox-include-financials-label"
-                className="flex items-center gap-2 cursor-pointer bg-slate-800/90 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-500/50 transition select-none group"
+                className="flex items-center gap-2 cursor-pointer bg-slate-800/90 hover:bg-slate-800 px-3 py-1 rounded-lg border border-slate-700 hover:border-amber-500/50 transition select-none group"
               >
                 <input
                   type="checkbox"
-                  id="checkbox-include-financials"
                   checked={includeFinancials}
                   onChange={(e) => setIncludeFinancials(e.target.checked)}
-                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                  className="w-3.5 h-3.5 accent-amber-500 rounded cursor-pointer"
                 />
                 <span className="text-xs font-medium text-slate-200 group-hover:text-amber-300">
-                  تضمين الأسعار والقيم المالية
-                </span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                  includeFinancials 
-                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' 
-                    : 'bg-slate-900 text-slate-400 border-slate-700'
-                }`}>
-                  {includeFinancials ? 'مُفعّل' : 'تم الحذف'}
+                  {lang === 'en' ? 'Include Pricing & Financials' : 'تضمين الأسعار والقيم المالية'}
                 </span>
               </label>
 
-              {!includeFinancials && (
-                <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-md">
-                  تم حذف جميع المبالغ والأسعار. التقرير الآن فني بحت (كميات، نسب إنجاز، ملاحظات).
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span>تاريخ التقرير:</span>
-              <input
-                type="date"
-                value={reportDate}
-                onChange={(e) => setReportDate(e.target.value)}
-                className="bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2.5 py-1 rounded focus:outline-none focus:border-amber-500"
-              />
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <span>{lang === 'en' ? 'Date:' : 'التاريخ:'}</span>
+                <input
+                  type="date"
+                  value={reportDate}
+                  onChange={(e) => setReportDate(e.target.value)}
+                  className="bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2 py-0.5 rounded focus:outline-none focus:border-amber-500"
+                />
+              </div>
             </div>
           </div>
 
           {/* Editable Signatures Form Drawer */}
           {showSignaturesEditor && (
-            <div className="p-4 bg-slate-800/90 border border-amber-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2">
+            <div className="p-4 bg-slate-800/95 border border-amber-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-700">
                 <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                   <Edit2 className="w-3.5 h-3.5 text-amber-400" />
@@ -417,511 +452,636 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
           )}
         </div>
 
-        {/* Scrollable Printable Document Container */}
-        <div className="p-4 sm:p-6 overflow-y-auto bg-slate-950/60 flex justify-center">
+        {/* ========================================================
+            DOCUMENT PAGES CONTAINER (Scrollable Preview)
+           ======================================================== */}
+        <div className="p-4 sm:p-6 overflow-y-auto bg-slate-950/70 flex flex-col items-center gap-8">
           
-          {/* Printable Sheet (Formatted precisely for standard A4 and clear print view) */}
+          {/* ========================================================
+              PAGE 1 (STANDARD A4): Header, Project Info, KPIs, BOQ Table
+             ======================================================== */}
           <div
-            ref={printAreaRef}
-            id="printable-report"
-            dir="rtl"
-            className="w-full max-w-4xl bg-white text-slate-900 p-8 sm:p-11 shadow-2xl rounded-sm border border-slate-300 text-right selection:bg-amber-100"
-            style={{ 
-              minHeight: '1120px', 
-              boxSizing: 'border-box',
-              fontFamily: "'Cairo', system-ui, -apple-system, sans-serif" 
-            }}
+            ref={page1Ref}
+            id="report-page-1"
+            dir={isRtl ? 'rtl' : 'ltr'}
+            className={`pdf-a4-page shadow-2xl p-8 sm:p-10 border border-slate-300 text-slate-900 ${
+              isRtl ? 'text-right font-sans' : 'text-left font-sans'
+            }`}
           >
-            {/* ========================================================
-                1. HEADER: Clear, separated titles & official letterhead
-               ======================================================== */}
-            <header className="border-b-2 border-slate-900 pb-5 mb-6">
-              
-              {/* Top Bar: Title & Metadata Box */}
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200">
-                {/* Right: Main Branding & System Title */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-2xl font-bold text-slate-950">
-                      محلّل البيانات الهندسي
-                    </span>
-                    <span className="text-[11px] font-bold bg-slate-900 text-white px-2.5 py-0.5 rounded">
-                      ENGINEERING REPORT
-                    </span>
+            {/* Top Content Area */}
+            <div>
+              {/* Official Header Bar */}
+              <header className="border-b-2 border-slate-900 pb-4 mb-4">
+                <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-200">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl font-bold text-slate-950 tracking-normal">
+                        {lang === 'en' ? tEn.systemTitle : tAr.systemTitle}
+                      </span>
+                      <span className="text-[10px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded">
+                        {lang === 'en' ? tEn.badge : tAr.badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      {lang === 'en' ? tEn.systemSubTitle : tAr.systemSubTitle}
+                    </p>
+                    {lang === 'bilingual' && (
+                      <p className="text-[10px] text-slate-500 italic mt-0.5" dir="ltr">
+                        {tEn.systemTitle} — {tEn.systemSubTitle}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-600 font-medium">
-                    منظومة المتابعة الفنية الميدانية وإدارة الكميات ونسب الإنجاز والمواد
+
+                  {/* Metadata Table */}
+                  <div className="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs min-w-[200px]">
+                    <table className="w-full text-[11px] border-collapse">
+                      <tbody>
+                        <tr>
+                          <td className="text-slate-500 py-0.5 font-medium">
+                            {lang === 'bilingual' ? `${tAr.code} / ${tEn.code}` : t.code}
+                          </td>
+                          <td className={`font-bold text-slate-900 py-0.5 ${isRtl ? 'text-left' : 'text-right'}`} dir="ltr">
+                            {project.code}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="text-slate-500 py-0.5 font-medium">
+                            {lang === 'bilingual' ? `${tAr.date} / ${tEn.date}` : t.date}
+                          </td>
+                          <td className={`text-slate-800 py-0.5 font-medium ${isRtl ? 'text-left' : 'text-right'}`} dir="ltr">
+                            {reportDate}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="text-slate-500 py-0.5 font-medium">
+                            {lang === 'bilingual' ? `${tAr.approvalStatus} / ${tEn.approvalStatus}` : t.approvalStatus}
+                          </td>
+                          <td className={`py-0.5 ${isRtl ? 'text-left' : 'text-right'}`}>
+                            <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
+                              {lang === 'bilingual' ? `${tAr.approvedOfficial} / ${tEn.approvedOfficial}` : t.approvedOfficial}
+                            </span>
+                          </td>
+                        </tr>
+                        {!includeFinancials && (
+                          <tr>
+                            <td colSpan={2} className="pt-1 border-t border-slate-200 text-center text-[10px] font-bold text-amber-700">
+                              {lang === 'bilingual' ? `${tAr.technicalOnlyNotice} / ${tEn.technicalOnlyNotice}` : t.technicalOnlyNotice}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Main Title Banner */}
+                <div className="mt-3 text-center py-2.5 bg-slate-100 rounded-lg border border-slate-200">
+                  <h1 className="text-base font-bold text-slate-950 leading-tight">
+                    {includeFinancials ? t.comprehensiveReportTitle : t.comprehensiveNoPriceReportTitle}
+                  </h1>
+                  {lang === 'bilingual' && (
+                    <p className="text-[11px] font-semibold text-slate-700 mt-0.5" dir="ltr">
+                      {includeFinancials ? tEn.comprehensiveReportTitle : tEn.comprehensiveNoPriceReportTitle}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-700 mt-1 font-bold">
+                    {trProject.name} {trProject.location ? `— ${trProject.location}` : ''}
                   </p>
                 </div>
 
-                {/* Left: Document Metadata Box (Strict table layout for perfect alignment) */}
-                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs min-w-[220px]">
-                  <table className="w-full text-xs border-collapse">
-                    <tbody>
-                      <tr>
-                        <td className="text-right text-slate-500 py-1 font-medium">كود المشروع:</td>
-                        <td className="text-left font-bold text-slate-900 py-1" dir="ltr">{project.code}</td>
-                      </tr>
-                      <tr>
-                        <td className="text-right text-slate-500 py-1 font-medium">تاريخ التحرير:</td>
-                        <td className="text-left text-slate-800 py-1 font-medium" dir="ltr">{reportDate}</td>
-                      </tr>
-                      <tr>
-                        <td className="text-right text-slate-500 py-1 font-medium">حالة الاعتماد:</td>
-                        <td className="text-left py-1">
-                          <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
-                            معتمد رسمي
-                          </span>
-                        </td>
-                      </tr>
-                      {!includeFinancials && (
-                        <tr>
-                          <td colSpan={2} className="pt-1.5 border-t border-slate-200 text-center text-[10px] font-bold text-amber-700">
-                            نسخة فنية (خالية من الأسعار)
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Main Report Title Banner (Centered, separated & clear) */}
-              <div className="mt-4 text-center py-3 bg-slate-100 rounded-lg border border-slate-200">
-                <h1 className="text-lg font-bold text-slate-950 leading-normal">
-                  {reportType === 'comprehensive'
-                    ? (includeFinancials 
-                        ? 'تقرير المتابعة الفنية الشاملة لحصر الكميات والمواد والتكاليف' 
-                        : 'تقرير المتابعة الفنية الميدانية لحصر الكميات ونسب الإنجاز')
-                    : 'التقرير اليومي المعتمد لسير الأعمال والأنشطة بالموقع'}
-                </h1>
-                <p className="text-xs text-slate-700 mt-1 font-semibold">
-                  {project.name} {project.location ? `— ${project.location}` : ''}
-                </p>
-              </div>
-
-              {/* Project Meta Information Cards (Organized 4-cell layout) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 text-xs">
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <span className="text-slate-500 block text-[11px] font-medium mb-1">اسم المشروع:</span>
-                  <span className="text-slate-950 font-bold leading-snug block">{project.name}</span>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <span className="text-slate-500 block text-[11px] font-medium mb-1">الجهة المالكة (العميل):</span>
-                  <span className="text-slate-900 font-bold leading-snug block">{project.client}</span>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <span className="text-slate-500 block text-[11px] font-medium mb-1">المقاول العام المنفذ:</span>
-                  <span className="text-slate-900 font-bold leading-snug block">{project.contractor}</span>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <span className="text-slate-500 block text-[11px] font-medium mb-1">الاستشاري الهندسي المشرف:</span>
-                  <span className="text-slate-900 font-bold leading-snug block">{project.consultant}</span>
-                </div>
-              </div>
-            </header>
-
-            {/* ========================================================
-                EXECUTIVE KPIs: Generous spacing, no border collisions
-               ======================================================== */}
-            <section className="mb-7 print-break-inside-avoid">
-              <div className={`grid gap-3.5 ${includeFinancials ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
-                
-                {/* KPI 1 */}
-                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-600 block mb-1">نسبة الإنجاز الفعلي</span>
-                  <div className="my-1">
-                    <span className="text-2xl font-bold text-blue-700">
-                      {formatNumber(projectMetrics.actualProgressPercent, 1)}%
+                {/* Project Info 4 Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-3 text-xs">
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                    <span className="text-slate-500 block text-[10px] font-medium mb-0.5">
+                      {lang === 'bilingual' ? `${tAr.projectName} / ${tEn.projectName}` : t.projectName}
+                    </span>
+                    <span className="text-slate-950 font-bold leading-snug block text-[11px] whitespace-pre-line">
+                      {trProject.name}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500 font-medium block">
-                    المخطط التعاقدي: {formatNumber(projectMetrics.plannedProgressPercent, 1)}%
-                  </span>
-                </div>
 
-                {/* KPI 2 */}
-                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-600 block mb-1">مؤشر الجدول الزمني (SPI)</span>
-                  <div className="my-1">
-                    <span className={`text-2xl font-bold ${
-                      projectMetrics.spi >= 1 ? 'text-emerald-700' : 'text-rose-700'
-                    }`}>
-                      {projectMetrics.spi.toFixed(2)}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                    <span className="text-slate-500 block text-[10px] font-medium mb-0.5">
+                      {lang === 'bilingual' ? `${tAr.client} / ${tEn.client}` : t.client}
+                    </span>
+                    <span className="text-slate-900 font-bold leading-snug block text-[11px]">
+                      {trProject.client}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500 font-medium block">
-                    {projectMetrics.variance >= 0 
-                      ? `+${projectMetrics.variance}% متقدم عن الجدول` 
-                      : `${projectMetrics.variance}% انحراف زمني`}
-                  </span>
-                </div>
 
-                {/* KPI 3: Only when financials are enabled */}
-                {includeFinancials && (
-                  <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
-                    <span className="text-xs font-semibold text-slate-600 block mb-1">القيمة المنفذة للأعمال</span>
-                    <div className="my-1">
-                      <span className="text-lg font-bold text-slate-900">
-                        {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                    <span className="text-slate-500 block text-[10px] font-medium mb-0.5">
+                      {lang === 'bilingual' ? `${tAr.contractor} / ${tEn.contractor}` : t.contractor}
+                    </span>
+                    <span className="text-slate-900 font-bold leading-snug block text-[11px]">
+                      {trProject.contractor}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                    <span className="text-slate-500 block text-[10px] font-medium mb-0.5">
+                      {lang === 'bilingual' ? `${tAr.consultant} / ${tEn.consultant}` : t.consultant}
+                    </span>
+                    <span className="text-slate-900 font-bold leading-snug block text-[11px]">
+                      {trProject.consultant}
+                    </span>
+                  </div>
+                </div>
+              </header>
+
+              {/* Executive KPIs Grid */}
+              <section className="mb-4">
+                <div className={`grid gap-2.5 ${includeFinancials ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  {/* KPI 1 */}
+                  <div className="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-center flex flex-col justify-between">
+                    <span className="text-[11px] font-semibold text-slate-600 block">
+                      {lang === 'bilingual' ? `${tAr.actualProgress} / ${tEn.actualProgress}` : t.actualProgress}
+                    </span>
+                    <div className="my-0.5">
+                      <span className="text-xl font-bold text-blue-700">
+                        {formatNumber(projectMetrics.actualProgressPercent, 1)}%
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-500 font-medium block">
-                      إجمالي العقد: {formatCurrency(project.totalContractValue, project.currency)}
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      {t.plannedProgress}: {formatNumber(projectMetrics.plannedProgressPercent, 1)}%
                     </span>
                   </div>
-                )}
 
-                {/* KPI 4 */}
-                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-600 block mb-1">القوة العاملة والمعدات</span>
-                  <div className="my-1">
-                    <span className="text-2xl font-bold text-amber-700">
-                      {latestLog?.laborCount || 0}
+                  {/* KPI 2 */}
+                  <div className="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-center flex flex-col justify-between">
+                    <span className="text-[11px] font-semibold text-slate-600 block">
+                      {lang === 'bilingual' ? `${tAr.scheduleIndex} / ${tEn.scheduleIndex}` : t.scheduleIndex}
                     </span>
-                    <span className="text-xs text-slate-600 font-bold mr-1">فرد</span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-medium block">
-                    + {latestLog?.equipmentCount || 0} معدات تشغيلية
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            {/* ========================================================
-                TABLE 1: BOQ & Work Items (Precise alignment & clearance)
-               ======================================================== */}
-            <section className="mb-7 print-break-inside-avoid">
-              {/* Section Title Header */}
-              <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3.5 py-2.5 rounded-t-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-                  <h2 className="text-xs font-bold text-slate-900">
-                    أولاً: جدول حصر الكميات ونسب الإنجاز التراكمية المعتمدة
-                  </h2>
-                </div>
-                <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  إجمالي البنود: {workItems.length}
-                </span>
-              </div>
-
-              {/* Table Container with proper borders & cell margins */}
-              <div className="border-x border-b border-slate-300 overflow-hidden">
-                <table className="w-full text-right text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-800 border-b border-slate-300 text-[11px] font-bold">
-                      <th className="py-2.5 px-3 text-center border-l border-slate-200 w-[11%]">الكود</th>
-                      <th className={`py-2.5 px-3 text-right border-l border-slate-200 ${includeFinancials ? 'w-[32%]' : 'w-[45%]'}`}>
-                        بيان وتوصيف الأعمال الهندسية
-                      </th>
-                      <th className="py-2.5 px-2 text-center border-l border-slate-200 w-[7%]">الوحدة</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[12%]">الكمية المقررة</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">منجز اليوم</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[12%]">إجمالي المنفذ</th>
-                      <th className={`py-2.5 px-2.5 text-center ${includeFinancials ? 'border-l border-slate-200 w-[10%]' : 'w-[15%]'}`}>
-                        نسبة الإنجاز
-                      </th>
-                      {includeFinancials && (
-                        <th className="py-2.5 px-3 text-center w-[15%]">
-                          القيمة المنفذة
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-[11px]">
-                    {workItems.map((item, idx) => {
-                      const totalExec = item.previousQuantity + item.todayQuantity;
-                      const percent = item.plannedQuantity > 0 
-                        ? Math.min(100, (totalExec / item.plannedQuantity) * 100) 
-                        : 0;
-                      const val = totalExec * item.unitRate;
-
-                      return (
-                        <tr 
-                          key={item.id} 
-                          className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
-                        >
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-800 border-l border-slate-200 whitespace-nowrap">
-                            {item.code}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-medium text-slate-900 border-l border-slate-200 leading-relaxed">
-                            {item.description}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700 border-l border-slate-200 whitespace-nowrap">
-                            {item.unit}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-semibold text-slate-800 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(item.plannedQuantity)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-bold text-amber-700 border-l border-slate-200 whitespace-nowrap">
-                            +{formatNumber(item.todayQuantity)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(totalExec)}
-                          </td>
-                          <td className={`py-2.5 px-2.5 text-center font-bold whitespace-nowrap ${
-                            includeFinancials ? 'border-l border-slate-200' : ''
-                          }`}>
-                            <span className={percent >= 100 ? 'text-emerald-700 font-extrabold' : 'text-blue-700'}>
-                              {formatNumber(percent, 1)}%
-                            </span>
-                          </td>
-                          {includeFinancials && (
-                            <td className="py-2.5 px-3 text-center font-semibold text-slate-900 whitespace-nowrap">
-                              {formatCurrency(val, project.currency)}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-
-                  {/* Summary Footer Row */}
-                  <tfoot>
-                    <tr className="bg-slate-100 font-bold text-[11px] border-t-2 border-slate-300">
-                      <td colSpan={2} className="py-2.5 px-3 text-right text-slate-900 border-l border-slate-200">
-                        المتوسط الوزني ونسب الإنجاز الكلية
-                      </td>
-                      <td colSpan={includeFinancials ? 4 : 4} className="py-2.5 px-2.5 text-center text-slate-600 border-l border-slate-200">
-                        {workItems.length} بنود أعمال هندسية
-                      </td>
-                      <td className={`py-2.5 px-2.5 text-center font-bold text-blue-800 ${
-                        includeFinancials ? 'border-l border-slate-200' : ''
+                    <div className="my-0.5">
+                      <span className={`text-xl font-bold ${
+                        projectMetrics.spi >= 1 ? 'text-emerald-700' : 'text-rose-700'
                       }`}>
-                        {formatNumber(projectMetrics.actualProgressPercent, 1)}%
-                      </td>
-                      {includeFinancials && (
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-950 whitespace-nowrap">
-                          {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
-                        </td>
-                      )}
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </section>
-
-            {/* ========================================================
-                TABLE 2: Materials & Inventory Status (Clear columns)
-               ======================================================== */}
-            <section className="mb-7 print-break-inside-avoid">
-              {/* Section Title Header */}
-              <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3.5 py-2.5 rounded-t-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>
-                  <h2 className="text-xs font-bold text-slate-900">
-                    ثانياً: موقف المواد والتوريدات والمخزون الميداني بالموقع
-                  </h2>
-                </div>
-                <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  {materials.length} مواد أساسية
-                </span>
-              </div>
-
-              {/* Table Container */}
-              <div className="border-x border-b border-slate-300 overflow-hidden">
-                <table className="w-full text-right text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-800 border-b border-slate-300 text-[11px] font-bold">
-                      <th className="py-2.5 px-3 text-right border-l border-slate-200 w-[27%]">
-                        المادة والمواصفة الفنية
-                      </th>
-                      <th className="py-2.5 px-2 text-center border-l border-slate-200 w-[7%]">الوحدة</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">المطلوب كلياً</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">المورّد للموقع</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">مستهلك اليوم</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">إجمالي المستهلك</th>
-                      <th className="py-2.5 px-2.5 text-center border-l border-slate-200 w-[11%]">الرصيد المتبقي</th>
-                      <th className="py-2.5 px-2.5 text-center w-[11%]">موقف الكفاية</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-[11px]">
-                    {materials.map((mat, idx) => {
-                      const remaining = mat.totalDelivered - mat.totalUsed;
-                      const isLow = remaining <= mat.minThreshold;
-
-                      return (
-                        <tr 
-                          key={mat.id}
-                          className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
-                        >
-                          <td className="py-2.5 px-3 text-right font-medium text-slate-900 border-l border-slate-200 leading-relaxed">
-                            {mat.name}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700 border-l border-slate-200 whitespace-nowrap">
-                            {mat.unit}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-semibold text-slate-800 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(mat.totalRequired)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-bold text-blue-900 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(mat.totalDelivered)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-bold text-purple-700 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(mat.todayUsed)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-semibold text-slate-800 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(mat.totalUsed)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
-                            {formatNumber(remaining)}
-                          </td>
-                          <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
-                            {isLow ? (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
-                                نقص بالمخزون
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                كافٍ ومستقر
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* ========================================================
-                3. SITE OBSERVATIONS: Clearly organized paragraphs
-               ======================================================== */}
-            {latestLog && (
-              <section className="mb-8 print-break-inside-avoid">
-                {/* Section Title Header */}
-                <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3.5 py-2.5 rounded-t-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
-                    <h2 className="text-xs font-bold text-slate-900">
-                      ثالثاً: سجل الملاحظات التنفيذية واليوميات الميدانية ({latestLog.dayName} {latestLog.date})
-                    </h2>
-                  </div>
-                  <span className="text-[11px] text-slate-600 font-medium">
-                    توثيق: {latestLog.loggedBy}
-                  </span>
-                </div>
-
-                {/* Paragraph Content Blocks */}
-                <div className="border-x border-b border-slate-300 p-4 space-y-3.5 bg-slate-50/50 rounded-b-lg text-xs">
-                  
-                  {/* Paragraph 1: Progress Summary */}
-                  <div className="bg-white border border-slate-200 rounded-lg p-3.5">
-                    <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1.5 pb-1 border-b border-slate-100">
-                      <ClipboardList className="w-4 h-4 text-blue-600" />
-                      <span>سير الأعمال والمنجزات الميدانية:</span>
+                        {projectMetrics.spi.toFixed(2)}
+                      </span>
                     </div>
-                    <p className="text-slate-800 leading-relaxed text-[11px] pr-5">
-                      {latestLog.summary}
-                    </p>
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      {projectMetrics.variance >= 0 
+                        ? `+${projectMetrics.variance}% ${t.aheadOfSchedule}` 
+                        : `${projectMetrics.variance}% ${t.scheduleDelay}`}
+                    </span>
                   </div>
 
-                  {/* Paragraph 2: Obstacles & Actions */}
-                  <div className="bg-white border border-slate-200 rounded-lg p-3.5">
-                    <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1.5 pb-1 border-b border-slate-100">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                      <span>المعوقات الميدانية والإجراءات التصحيحية:</span>
+                  {/* KPI 3: Financials */}
+                  {includeFinancials && (
+                    <div className="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-center flex flex-col justify-between">
+                      <span className="text-[11px] font-semibold text-slate-600 block">
+                        {lang === 'bilingual' ? `${tAr.executedValue} / ${tEn.executedValue}` : t.executedValue}
+                      </span>
+                      <div className="my-0.5">
+                        <span className="text-base font-bold text-slate-900">
+                          {formatCurrency(projectMetrics.totalExecutedCost, trProject.currency)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium block">
+                        {t.contractValue}: {formatCurrency(project.totalContractValue, trProject.currency)}
+                      </span>
                     </div>
-                    <p className="text-slate-800 leading-relaxed text-[11px] pr-5">
-                      {latestLog.obstacles || 'سير الأعمال يسير بانتظام تام، ولا توجد أي معوقات تؤثر على المسار الحرج للمشروع.'}
-                    </p>
-                  </div>
+                  )}
 
-                  {/* Paragraph 3: Health, Safety & Environment (HSE) */}
-                  <div className="bg-white border border-slate-200 rounded-lg p-3.5">
-                    <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1.5 pb-1 border-b border-slate-100">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>السلامة والصحة المهنية والبيئة (HSE):</span>
+                  {/* KPI 4 */}
+                  <div className="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-center flex flex-col justify-between">
+                    <span className="text-[11px] font-semibold text-slate-600 block">
+                      {lang === 'bilingual' ? `${tAr.workforce} / ${tEn.workforce}` : t.workforce}
+                    </span>
+                    <div className="my-0.5">
+                      <span className="text-xl font-bold text-amber-700">
+                        {latestLog?.laborCount || 0}
+                      </span>
+                      <span className="text-[11px] text-slate-600 font-bold mx-1">
+                        {t.workers}
+                      </span>
                     </div>
-                    <p className="text-slate-800 leading-relaxed text-[11px] pr-5">
-                      {latestLog.safetyNotes || 'الالتزام التام بكافة تدابير واشتراطات السلامة المهنية ومهمات الوقاية الشخصية في الموقع.'}
-                    </p>
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      + {latestLog?.equipmentCount || 0} {t.equipmentOperating}
+                    </span>
                   </div>
                 </div>
               </section>
-            )}
 
-            {/* ========================================================
-                4. SIGNATURES & APPROVALS: Clear, separated & editable
-               ======================================================== */}
-            <footer className="mt-8 pt-6 border-t-2 border-slate-900 print-break-inside-avoid">
-              <div className="text-xs font-bold text-slate-800 mb-6 text-center">
-                الاعتمادات والمصادقات الرسمية المعتمدة للمشروع
+              {/* TABLE 1: BOQ Items (Strictly fits page with 100% table layout) */}
+              <section className="mb-4">
+                <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3 py-2 rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                    <h2 className="text-xs font-bold text-slate-900">
+                      {lang === 'bilingual' ? `${tAr.boqSectionTitle} / ${tEn.boqSectionTitle}` : t.boqSectionTitle}
+                    </h2>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {t.totalItems}: {workItems.length}
+                  </span>
+                </div>
+
+                <div className="border-x border-b border-slate-300 overflow-hidden">
+                  <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-800 border-b border-slate-300 text-[10px] font-bold">
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'الكود / Code' : t.boqCode}
+                        </th>
+                        <th className={`py-2 px-2.5 ${isRtl ? 'text-right border-l' : 'text-left border-r'} border-slate-200 ${includeFinancials ? 'w-[35%]' : 'w-[47%]'}`}>
+                          {lang === 'bilingual' ? 'بيان وتوصيف الأعمال / Scope Description' : t.boqDescription}
+                        </th>
+                        <th className={`py-2 px-1 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[7%]`}>
+                          {lang === 'bilingual' ? 'الوحدة / Unit' : t.unit}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'المقرر / Planned' : t.plannedQty}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'اليوم / Today' : t.todayQty}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'المنفذ / Executed' : t.totalExecQty}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${includeFinancials ? (isRtl ? 'border-l' : 'border-r') + ' border-slate-200 w-[14%]' : 'w-[14%]'}`}>
+                          {lang === 'bilingual' ? 'الإنجاز / Progress' : t.progressPercent}
+                        </th>
+                        {includeFinancials && (
+                          <th className="py-2 px-2.5 text-center w-[15%]">
+                            {lang === 'bilingual' ? 'القيمة / Value' : t.executedCost}
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-[10px]">
+                      {workItems.map((item, idx) => {
+                        const totalExec = item.previousQuantity + item.todayQuantity;
+                        const percent = item.plannedQuantity > 0 
+                          ? Math.min(100, (totalExec / item.plannedQuantity) * 100) 
+                          : 0;
+                        const val = totalExec * item.unitRate;
+                        const itemDesc = getTranslatedItemDesc(item.code, item.description, lang);
+                        const itemUnit = getTranslatedUnit(item.unit, lang);
+
+                        return (
+                          <tr 
+                            key={item.id} 
+                            className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
+                          >
+                            <td className={`py-1.5 px-2 text-center font-bold text-slate-800 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {item.code}
+                            </td>
+                            <td className={`py-1.5 px-2.5 ${isRtl ? 'text-right border-l' : 'text-left border-r'} border-slate-200 font-medium text-slate-900 leading-snug`}>
+                              {lang === 'bilingual' ? (
+                                <div>
+                                  <div className="font-semibold text-slate-950">{item.description}</div>
+                                  <div className="text-[9px] text-slate-600 font-normal italic" dir="ltr">
+                                    {getTranslatedItemDesc(item.code, item.description, 'en')}
+                                  </div>
+                                </div>
+                              ) : (
+                                itemDesc
+                              )}
+                            </td>
+                            <td className={`py-1.5 px-1 text-center text-slate-700 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {itemUnit}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-semibold text-slate-800 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(item.plannedQuantity)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-bold text-amber-700 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              +{formatNumber(item.todayQuantity)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-bold text-slate-900 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(totalExec)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-bold whitespace-nowrap ${
+                              includeFinancials ? (isRtl ? 'border-l' : 'border-r') + ' border-slate-200' : ''
+                            }`}>
+                              <span className={percent >= 100 ? 'text-emerald-700 font-extrabold' : 'text-blue-700'}>
+                                {formatNumber(percent, 1)}%
+                              </span>
+                            </td>
+                            {includeFinancials && (
+                              <td className="py-1.5 px-2.5 text-center font-semibold text-slate-900 whitespace-nowrap">
+                                {formatCurrency(val, trProject.currency)}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+
+                    <tfoot>
+                      <tr className="bg-slate-100 font-bold text-[10px] border-t-2 border-slate-300">
+                        <td colSpan={2} className={`py-2 px-2.5 ${isRtl ? 'text-right border-l' : 'text-left border-r'} border-slate-200 text-slate-900`}>
+                          {lang === 'bilingual' ? `${tAr.boqSummaryTitle} / ${tEn.boqSummaryTitle}` : t.boqSummaryTitle}
+                        </td>
+                        <td colSpan={4} className={`py-2 px-2 text-center text-slate-600 ${isRtl ? 'border-l' : 'border-r'} border-slate-200`}>
+                          {workItems.length} {t.engineeringItems}
+                        </td>
+                        <td className={`py-2 px-2 text-center font-bold text-blue-800 ${
+                          includeFinancials ? (isRtl ? 'border-l' : 'border-r') + ' border-slate-200' : ''
+                        }`}>
+                          {formatNumber(projectMetrics.actualProgressPercent, 1)}%
+                        </td>
+                        {includeFinancials && (
+                          <td className="py-2 px-2.5 text-center font-bold text-slate-950 whitespace-nowrap">
+                            {formatCurrency(projectMetrics.totalExecutedCost, trProject.currency)}
+                          </td>
+                        )}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </section>
+            </div>
+
+            {/* Fixed Footer Bar with Page Numbering for Page 1 */}
+            <footer className="pt-3 border-t border-slate-300 text-[10px] text-slate-500 flex items-center justify-between mt-auto">
+              <div>
+                <span>{t.confidentialNotice}</span>
               </div>
-
-              <div className="grid grid-cols-3 gap-6 text-center text-xs">
-                {/* Signature 1 */}
-                <div className="flex flex-col items-center bg-slate-50/60 border border-slate-200 rounded-lg p-3.5">
-                  <input
-                    type="text"
-                    value={approvalTitle1}
-                    onChange={(e) => setApprovalTitle1(e.target.value)}
-                    className="font-bold text-slate-900 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none pb-1 transition cursor-text text-xs"
-                    title="انقر لتعديل المسمى"
-                  />
-                  <textarea
-                    rows={2}
-                    value={approvalName1}
-                    onChange={(e) => setApprovalName1(e.target.value)}
-                    className="text-slate-700 mt-1 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none resize-none transition cursor-text leading-snug text-[11px]"
-                    title="انقر لتعديل الاسم"
-                  />
-                  <div className="mt-8 border-b-2 border-dashed border-slate-400 w-36 mx-auto"></div>
-                  <div className="text-[10px] text-slate-500 font-medium mt-1.5">التوقيع والختم</div>
-                </div>
-
-                {/* Signature 2 */}
-                <div className="flex flex-col items-center bg-slate-50/60 border border-slate-200 rounded-lg p-3.5">
-                  <input
-                    type="text"
-                    value={approvalTitle2}
-                    onChange={(e) => setApprovalTitle2(e.target.value)}
-                    className="font-bold text-slate-900 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none pb-1 transition cursor-text text-xs"
-                    title="انقر لتعديل المسمى"
-                  />
-                  <textarea
-                    rows={2}
-                    value={approvalName2}
-                    onChange={(e) => setApprovalName2(e.target.value)}
-                    className="text-slate-700 mt-1 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none resize-none transition cursor-text leading-snug text-[11px]"
-                    title="انقر لتعديل الاسم أو الوصف"
-                  />
-                  <div className="mt-8 border-b-2 border-dashed border-slate-400 w-36 mx-auto"></div>
-                  <div className="text-[10px] text-slate-500 font-medium mt-1.5">التوقيع والختم</div>
-                </div>
-
-                {/* Signature 3 */}
-                <div className="flex flex-col items-center bg-slate-50/60 border border-slate-200 rounded-lg p-3.5">
-                  <input
-                    type="text"
-                    value={approvalTitle3}
-                    onChange={(e) => setApprovalTitle3(e.target.value)}
-                    className="font-bold text-slate-900 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none pb-1 transition cursor-text text-xs"
-                    title="انقر لتعديل المسمى"
-                  />
-                  <textarea
-                    rows={2}
-                    value={approvalName3}
-                    onChange={(e) => setApprovalName3(e.target.value)}
-                    className="text-slate-700 mt-1 text-center w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 focus:bg-white focus:outline-none resize-none transition cursor-text leading-snug text-[11px]"
-                    title="انقر لتعديل الاسم"
-                  />
-                  <div className="mt-8 border-b-2 border-dashed border-slate-400 w-36 mx-auto"></div>
-                  <div className="text-[10px] text-slate-500 font-medium mt-1.5">التوقيع والختم</div>
-                </div>
-              </div>
-
-              {/* End of Official Report Notice */}
-              <div className="text-center text-[10px] text-slate-400 mt-6 pt-3 border-t border-slate-200">
-                — نهاية التقرير الهندسي المعتمد — تم الإصدار عبر «محلّل البيانات الهندسي» —
+              <div className="font-bold text-slate-800 px-2 py-0.5 bg-slate-100 rounded border border-slate-300">
+                {lang === 'bilingual' ? 'صفحة 1 من 2 | Page 1 of 2' : t.pageNumber(1, 2)}
               </div>
             </footer>
-
           </div>
+
+          {/* ========================================================
+              PAGE 2 (STANDARD A4): Materials, Daily Logs & Approvals
+             ======================================================== */}
+          <div
+            ref={page2Ref}
+            id="report-page-2"
+            dir={isRtl ? 'rtl' : 'ltr'}
+            className={`pdf-a4-page shadow-2xl p-8 sm:p-10 border border-slate-300 text-slate-900 ${
+              isRtl ? 'text-right font-sans' : 'text-left font-sans'
+            }`}
+          >
+            {/* Top Content Area */}
+            <div>
+              {/* Page 2 Continuity Header */}
+              <header className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-bold text-slate-950 block">
+                      {lang === 'en' ? tEn.systemTitle : tAr.systemTitle}
+                    </span>
+                    <span className="text-[11px] text-slate-600 font-semibold">
+                      {trProject.name} — {project.code}
+                    </span>
+                  </div>
+                  <div className="text-left text-xs bg-slate-100 border border-slate-300 px-2.5 py-1 rounded">
+                    <span className="text-slate-500 font-medium">{t.date} </span>
+                    <span className="font-bold text-slate-900">{reportDate}</span>
+                  </div>
+                </div>
+              </header>
+
+              {/* SECTION 2: Materials & Inventory Table */}
+              <section className="mb-4">
+                <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3 py-2 rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>
+                    <h2 className="text-xs font-bold text-slate-900">
+                      {lang === 'bilingual' ? `${tAr.materialsSectionTitle} / ${tEn.materialsSectionTitle}` : t.materialsSectionTitle}
+                    </h2>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {materials.length} {t.basicMaterials}
+                  </span>
+                </div>
+
+                <div className="border-x border-b border-slate-300 overflow-hidden">
+                  <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-800 border-b border-slate-300 text-[10px] font-bold">
+                        <th className={`py-2 px-2.5 ${isRtl ? 'text-right border-l' : 'text-left border-r'} border-slate-200 w-[28%]`}>
+                          {lang === 'bilingual' ? 'المادة والمواصفة / Material & Spec' : t.materialNameSpec}
+                        </th>
+                        <th className={`py-2 px-1 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[7%]`}>
+                          {lang === 'bilingual' ? 'الوحدة / Unit' : t.unit}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'المطلوب / Req.' : t.totalRequired}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'المورّد / Deliv.' : t.totalDelivered}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'مستهلك اليوم / Today' : t.todayConsumed}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[11%]`}>
+                          {lang === 'bilingual' ? 'إجمالي المستهلك / Total' : t.totalConsumed}
+                        </th>
+                        <th className={`py-2 px-2 text-center ${isRtl ? 'border-l' : 'border-r'} border-slate-200 w-[10%]`}>
+                          {lang === 'bilingual' ? 'المتبقي / Stock' : t.remainingBalance}
+                        </th>
+                        <th className="py-2 px-2 text-center w-[11%]">
+                          {lang === 'bilingual' ? 'الموقف / Status' : t.stockStatus}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-[10px]">
+                      {materials.map((mat, idx) => {
+                        const remaining = mat.totalDelivered - mat.totalUsed;
+                        const isLow = remaining <= mat.minThreshold;
+                        const matName = getTranslatedMaterialName(mat.name, lang);
+                        const matUnit = getTranslatedUnit(mat.unit, lang);
+
+                        return (
+                          <tr 
+                            key={mat.id}
+                            className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
+                          >
+                            <td className={`py-1.5 px-2.5 ${isRtl ? 'text-right border-l' : 'text-left border-r'} border-slate-200 font-medium text-slate-900 leading-snug`}>
+                              {lang === 'bilingual' ? (
+                                <div>
+                                  <div className="font-semibold text-slate-950">{mat.name}</div>
+                                  <div className="text-[9px] text-slate-600 font-normal italic" dir="ltr">
+                                    {getTranslatedMaterialName(mat.name, 'en')}
+                                  </div>
+                                </div>
+                              ) : (
+                                matName
+                              )}
+                            </td>
+                            <td className={`py-1.5 px-1 text-center text-slate-700 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {matUnit}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-semibold text-slate-800 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(mat.totalRequired)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-bold text-blue-900 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(mat.totalDelivered)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-bold text-purple-700 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(mat.todayUsed)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-semibold text-slate-800 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(mat.totalUsed)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-center font-bold text-slate-900 ${isRtl ? 'border-l' : 'border-r'} border-slate-200 whitespace-nowrap`}>
+                              {formatNumber(remaining)}
+                            </td>
+                            <td className="py-1.5 px-2 text-center whitespace-nowrap">
+                              {isLow ? (
+                                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                  {lang === 'bilingual' ? `${tAr.stockShortage} / ${tEn.stockShortage}` : t.stockShortage}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  {lang === 'bilingual' ? `${tAr.stockAdequate} / ${tEn.stockAdequate}` : t.stockAdequate}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* SECTION 3: Site Observations / Daily Log */}
+              {latestLog && (
+                <section className="mb-4">
+                  <div className="flex items-center justify-between bg-slate-100 border border-slate-300 px-3 py-2 rounded-t-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+                      <h2 className="text-xs font-bold text-slate-900">
+                        {lang === 'bilingual' ? `${tAr.logsSectionTitle} / ${tEn.logsSectionTitle}` : t.logsSectionTitle} ({latestLog.dayName} {latestLog.date})
+                      </h2>
+                    </div>
+                    <span className="text-[10px] text-slate-600 font-medium">
+                      {t.documentedBy} {latestLog.loggedBy}
+                    </span>
+                  </div>
+
+                  <div className="border-x border-b border-slate-300 p-3 space-y-2.5 bg-slate-50/50 rounded-b-lg text-xs">
+                    {/* Paragraph 1 */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                      <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1 pb-1 border-b border-slate-100 text-[11px]">
+                        <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{lang === 'bilingual' ? `${tAr.progressBlockTitle} / ${tEn.progressBlockTitle}` : t.progressBlockTitle}</span>
+                      </div>
+                      <p className="text-slate-800 leading-relaxed text-[10px]">
+                        {latestLog.summary}
+                      </p>
+                      {lang === 'bilingual' && (
+                        <p className="text-slate-600 leading-relaxed text-[9px] italic mt-0.5" dir="ltr">
+                          Field activities progressed on schedule with milestone accomplishments recorded today.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Paragraph 2 */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                      <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1 pb-1 border-b border-slate-100 text-[11px]">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{lang === 'bilingual' ? `${tAr.obstaclesBlockTitle} / ${tEn.obstaclesBlockTitle}` : t.obstaclesBlockTitle}</span>
+                      </div>
+                      <p className="text-slate-800 leading-relaxed text-[10px]">
+                        {latestLog.obstacles || t.obstaclesDefault}
+                      </p>
+                      {lang === 'bilingual' && (
+                        <p className="text-slate-600 leading-relaxed text-[9px] italic mt-0.5" dir="ltr">
+                          {tEn.obstaclesDefault}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Paragraph 3 */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                      <div className="flex items-center gap-1.5 text-slate-900 font-bold mb-1 pb-1 border-b border-slate-100 text-[11px]">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{lang === 'bilingual' ? `${tAr.hseBlockTitle} / ${tEn.hseBlockTitle}` : t.hseBlockTitle}</span>
+                      </div>
+                      <p className="text-slate-800 leading-relaxed text-[10px]">
+                        {latestLog.safetyNotes || t.hseDefault}
+                      </p>
+                      {lang === 'bilingual' && (
+                        <p className="text-slate-600 leading-relaxed text-[9px] italic mt-0.5" dir="ltr">
+                          {tEn.hseDefault}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* SECTION 4: Official Sign-offs & Approvals */}
+              <section className="mt-4 pt-3 border-t-2 border-slate-900">
+                <div className="text-xs font-bold text-slate-900 mb-3 text-center">
+                  {lang === 'bilingual' ? `${tAr.approvalsSectionTitle} / ${tEn.approvalsSectionTitle}` : t.approvalsSectionTitle}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                  {/* Sign 1 */}
+                  <div className="flex flex-col items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-2.5 min-h-[120px]">
+                    <div className="w-full">
+                      <div className="font-bold text-slate-900 text-center text-[11px]">
+                        {getApprovalTitle(approvalTitle1, 1)}
+                      </div>
+                      <div className="text-slate-700 mt-1 text-center text-[10px] leading-tight">
+                        {getApprovalName(approvalName1, 1)}
+                      </div>
+                    </div>
+                    <div className="w-full mt-4">
+                      <div className="border-b-2 border-dashed border-slate-400 w-32 mx-auto"></div>
+                      <div className="text-[9px] text-slate-500 font-medium mt-1">
+                        {t.signAndStamp}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sign 2 */}
+                  <div className="flex flex-col items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-2.5 min-h-[120px]">
+                    <div className="w-full">
+                      <div className="font-bold text-slate-900 text-center text-[11px]">
+                        {getApprovalTitle(approvalTitle2, 2)}
+                      </div>
+                      <div className="text-slate-700 mt-1 text-center text-[10px] leading-tight">
+                        {getApprovalName(approvalName2, 2)}
+                      </div>
+                    </div>
+                    <div className="w-full mt-4">
+                      <div className="border-b-2 border-dashed border-slate-400 w-32 mx-auto"></div>
+                      <div className="text-[9px] text-slate-500 font-medium mt-1">
+                        {t.signAndStamp}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sign 3 */}
+                  <div className="flex flex-col items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-2.5 min-h-[120px]">
+                    <div className="w-full">
+                      <div className="font-bold text-slate-900 text-center text-[11px]">
+                        {getApprovalTitle(approvalTitle3, 3)}
+                      </div>
+                      <div className="text-slate-700 mt-1 text-center text-[10px] leading-tight">
+                        {getApprovalName(approvalName3, 3)}
+                      </div>
+                    </div>
+                    <div className="w-full mt-4">
+                      <div className="border-b-2 border-dashed border-slate-400 w-32 mx-auto"></div>
+                      <div className="text-[9px] text-slate-500 font-medium mt-1">
+                        {t.signAndStamp}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* Fixed Footer Bar with Page Numbering for Page 2 */}
+            <footer className="pt-3 border-t border-slate-300 text-[10px] text-slate-500 flex items-center justify-between mt-auto">
+              <div>
+                <span>{t.confidentialNotice}</span>
+              </div>
+              <div className="font-bold text-slate-800 px-2 py-0.5 bg-slate-100 rounded border border-slate-300">
+                {lang === 'bilingual' ? 'صفحة 2 من 2 | Page 2 of 2' : t.pageNumber(2, 2)}
+              </div>
+            </footer>
+          </div>
+
         </div>
       </div>
     </div>

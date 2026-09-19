@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold shadow-md shadow-amber-950/40 transition active:scale-95"
             >
               <FileDown className="w-4 h-4" />
-              <span>تصدير تقرير PDF</span>
+              <span>تصدير تقرير PDF (عربي / EN)</span>
             </button>
           </div>
         </div>
