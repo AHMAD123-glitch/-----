@@ -10,14 +10,8 @@ import {
   FileDown, 
   Printer, 
   X, 
-  CheckCircle2, 
-  HardHat, 
-  Building2, 
-  Calendar, 
   FileText,
   Loader2,
-  CheckSquare,
-  Square,
   Edit2,
   ChevronDown,
   ChevronUp,
@@ -25,14 +19,10 @@ import {
   RotateCcw,
   ShieldCheck,
   AlertTriangle,
-  ClipboardList,
-  Layers,
-  Package,
-  TrendingUp,
-  Check
+  ClipboardList
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 
 interface PdfReportModalProps {
   isOpen: boolean;
@@ -134,13 +124,12 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
       setIsGenerating(true);
       const element = printAreaRef.current;
 
-      // High-resolution canvas capture
+      // High-resolution canvas capture with native dimensions
       const canvas = await html2canvas(element, {
-        scale: 2, // High resolution for crisp text & borders
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: 1200,
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
@@ -151,21 +140,20 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       const pageHeight = pdf.internal.pageSize.getHeight();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      let heightLeft = pdfHeight;
       let position = 0;
-
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
 
-      // Multi-page handling with clean continuation
-      while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
+      let remainingHeight = pdfHeight - pageHeight;
+
+      // Handle multi-page without offset drift
+      while (remainingHeight > 0) {
+        position -= pageHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
+        remainingHeight -= pageHeight;
       }
 
       const fileName = `تقرير_هندسي_${project.code}_${reportDate}.pdf`;
@@ -196,7 +184,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <span>تصدير وطباعة التقرير الهندسي المعتمد (PDF)</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                     نسخة منسقة
                   </span>
                 </h3>
@@ -246,10 +234,11 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 id="btn-trigger-print"
                 type="button"
                 onClick={handlePrint}
+                title="طباعة مباشرة أو حفظ بتنسيق PDF من المتصفح"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
               >
                 <Printer className="w-4 h-4 text-slate-400" />
-                <span>طباعة</span>
+                <span>طباعة المستند</span>
               </button>
 
               <button
@@ -321,7 +310,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 type="date"
                 value={reportDate}
                 onChange={(e) => setReportDate(e.target.value)}
-                className="bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2.5 py-1 rounded font-mono focus:outline-none focus:border-amber-500"
+                className="bg-slate-800 border border-slate-700 text-slate-200 text-xs px-2.5 py-1 rounded focus:outline-none focus:border-amber-500"
               />
             </div>
           </div>
@@ -435,7 +424,8 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
           <div
             ref={printAreaRef}
             id="printable-report"
-            className="w-full max-w-4xl bg-white text-slate-900 p-8 sm:p-11 shadow-2xl rounded-sm border border-slate-300 text-right selection:bg-amber-100 font-sans"
+            dir="rtl"
+            className="w-full max-w-4xl bg-white text-slate-900 p-8 sm:p-11 shadow-2xl rounded-sm border border-slate-300 text-right selection:bg-amber-100"
             style={{ 
               minHeight: '1120px', 
               boxSizing: 'border-box',
@@ -447,15 +437,15 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                ======================================================== */}
             <header className="border-b-2 border-slate-900 pb-5 mb-6">
               
-              {/* Top Bar: Title & Metadata Card (Cleanly separated) */}
+              {/* Top Bar: Title & Metadata Box */}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200">
                 {/* Right: Main Branding & System Title */}
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-2xl font-black text-slate-950 tracking-tight">
+                    <span className="text-2xl font-bold text-slate-950">
                       محلّل البيانات الهندسي
                     </span>
-                    <span className="text-[11px] font-bold tracking-wider bg-slate-900 text-white px-2.5 py-0.5 rounded">
+                    <span className="text-[11px] font-bold bg-slate-900 text-white px-2.5 py-0.5 rounded">
                       ENGINEERING REPORT
                     </span>
                   </div>
@@ -464,33 +454,41 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                   </p>
                 </div>
 
-                {/* Left: Document Metadata Box (Clear separated framing) */}
-                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs min-w-[210px] space-y-1">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500 text-[11px]">كود المشروع:</span>
-                    <span className="font-mono font-bold text-slate-900">{project.code}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500 text-[11px]">تاريخ التحرير:</span>
-                    <span className="font-mono text-slate-800">{reportDate}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500 text-[11px]">حالة الاعتماد:</span>
-                    <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
-                      معتمد رسمي
-                    </span>
-                  </div>
-                  {!includeFinancials && (
-                    <div className="pt-1 mt-1 border-t border-slate-200 text-center text-[10px] font-bold text-amber-700">
-                      نسخة فنية (خالية من الأسعار)
-                    </div>
-                  )}
+                {/* Left: Document Metadata Box (Strict table layout for perfect alignment) */}
+                <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs min-w-[220px]">
+                  <table className="w-full text-xs border-collapse">
+                    <tbody>
+                      <tr>
+                        <td className="text-right text-slate-500 py-1 font-medium">كود المشروع:</td>
+                        <td className="text-left font-bold text-slate-900 py-1" dir="ltr">{project.code}</td>
+                      </tr>
+                      <tr>
+                        <td className="text-right text-slate-500 py-1 font-medium">تاريخ التحرير:</td>
+                        <td className="text-left text-slate-800 py-1 font-medium" dir="ltr">{reportDate}</td>
+                      </tr>
+                      <tr>
+                        <td className="text-right text-slate-500 py-1 font-medium">حالة الاعتماد:</td>
+                        <td className="text-left py-1">
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
+                            معتمد رسمي
+                          </span>
+                        </td>
+                      </tr>
+                      {!includeFinancials && (
+                        <tr>
+                          <td colSpan={2} className="pt-1.5 border-t border-slate-200 text-center text-[10px] font-bold text-amber-700">
+                            نسخة فنية (خالية من الأسعار)
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
               {/* Main Report Title Banner (Centered, separated & clear) */}
-              <div className="mt-4 text-center py-2.5 bg-slate-100/80 rounded-lg border border-slate-200">
-                <h1 className="text-lg font-black text-slate-950 tracking-wide">
+              <div className="mt-4 text-center py-3 bg-slate-100 rounded-lg border border-slate-200">
+                <h1 className="text-lg font-bold text-slate-950 leading-normal">
                   {reportType === 'comprehensive'
                     ? (includeFinancials 
                         ? 'تقرير المتابعة الفنية الشاملة لحصر الكميات والمواد والتكاليف' 
@@ -536,7 +534,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
                   <span className="text-xs font-semibold text-slate-600 block mb-1">نسبة الإنجاز الفعلي</span>
                   <div className="my-1">
-                    <span className="text-2xl font-black text-blue-700 font-mono tracking-tight">
+                    <span className="text-2xl font-bold text-blue-700">
                       {formatNumber(projectMetrics.actualProgressPercent, 1)}%
                     </span>
                   </div>
@@ -549,7 +547,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
                   <span className="text-xs font-semibold text-slate-600 block mb-1">مؤشر الجدول الزمني (SPI)</span>
                   <div className="my-1">
-                    <span className={`text-2xl font-black font-mono tracking-tight ${
+                    <span className={`text-2xl font-bold ${
                       projectMetrics.spi >= 1 ? 'text-emerald-700' : 'text-rose-700'
                     }`}>
                       {projectMetrics.spi.toFixed(2)}
@@ -567,7 +565,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                   <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
                     <span className="text-xs font-semibold text-slate-600 block mb-1">القيمة المنفذة للأعمال</span>
                     <div className="my-1">
-                      <span className="text-lg font-black text-slate-900 font-mono tracking-tight">
+                      <span className="text-lg font-bold text-slate-900">
                         {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
                       </span>
                     </div>
@@ -581,7 +579,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 text-center flex flex-col justify-between">
                   <span className="text-xs font-semibold text-slate-600 block mb-1">القوة العاملة والمعدات</span>
                   <div className="my-1">
-                    <span className="text-2xl font-black text-amber-700 font-mono tracking-tight">
+                    <span className="text-2xl font-bold text-amber-700">
                       {latestLog?.laborCount || 0}
                     </span>
                     <span className="text-xs text-slate-600 font-bold mr-1">فرد</span>
@@ -605,7 +603,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                     أولاً: جدول حصر الكميات ونسب الإنجاز التراكمية المعتمدة
                   </h2>
                 </div>
-                <span className="text-[11px] font-mono font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
                   إجمالي البنود: {workItems.length}
                 </span>
               </div>
@@ -646,25 +644,25 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                           key={item.id} 
                           className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
                         >
-                          <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-800 border-l border-slate-200 whitespace-nowrap">
                             {item.code}
                           </td>
                           <td className="py-2.5 px-3 text-right font-medium text-slate-900 border-l border-slate-200 leading-relaxed">
                             {item.description}
                           </td>
-                          <td className="py-2.5 px-2 text-center font-mono text-slate-700 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2 text-center text-slate-700 border-l border-slate-200 whitespace-nowrap">
                             {item.unit}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-semibold text-slate-800 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(item.plannedQuantity)}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-amber-700 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-bold text-amber-700 border-l border-slate-200 whitespace-nowrap">
                             +{formatNumber(item.todayQuantity)}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(totalExec)}
                           </td>
-                          <td className={`py-2.5 px-2.5 text-center font-mono font-bold whitespace-nowrap ${
+                          <td className={`py-2.5 px-2.5 text-center font-bold whitespace-nowrap ${
                             includeFinancials ? 'border-l border-slate-200' : ''
                           }`}>
                             <span className={percent >= 100 ? 'text-emerald-700 font-extrabold' : 'text-blue-700'}>
@@ -672,7 +670,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                             </span>
                           </td>
                           {includeFinancials && (
-                            <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-900 whitespace-nowrap">
+                            <td className="py-2.5 px-3 text-center font-semibold text-slate-900 whitespace-nowrap">
                               {formatCurrency(val, project.currency)}
                             </td>
                           )}
@@ -690,13 +688,13 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                       <td colSpan={includeFinancials ? 4 : 4} className="py-2.5 px-2.5 text-center text-slate-600 border-l border-slate-200">
                         {workItems.length} بنود أعمال هندسية
                       </td>
-                      <td className={`py-2.5 px-2.5 text-center font-mono font-black text-blue-800 ${
+                      <td className={`py-2.5 px-2.5 text-center font-bold text-blue-800 ${
                         includeFinancials ? 'border-l border-slate-200' : ''
                       }`}>
                         {formatNumber(projectMetrics.actualProgressPercent, 1)}%
                       </td>
                       {includeFinancials && (
-                        <td className="py-2.5 px-3 text-center font-mono font-black text-slate-950 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-950 whitespace-nowrap">
                           {formatCurrency(projectMetrics.totalExecutedCost, project.currency)}
                         </td>
                       )}
@@ -718,7 +716,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                     ثانياً: موقف المواد والتوريدات والمخزون الميداني بالموقع
                   </h2>
                 </div>
-                <span className="text-[11px] font-mono font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
                   {materials.length} مواد أساسية
                 </span>
               </div>
@@ -753,22 +751,22 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                           <td className="py-2.5 px-3 text-right font-medium text-slate-900 border-l border-slate-200 leading-relaxed">
                             {mat.name}
                           </td>
-                          <td className="py-2.5 px-2 text-center font-mono text-slate-700 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2 text-center text-slate-700 border-l border-slate-200 whitespace-nowrap">
                             {mat.unit}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-semibold text-slate-800 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(mat.totalRequired)}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-blue-900 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-bold text-blue-900 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(mat.totalDelivered)}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-purple-700 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-bold text-purple-700 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(mat.todayUsed)}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono text-slate-800 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-semibold text-slate-800 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(mat.totalUsed)}
                           </td>
-                          <td className="py-2.5 px-2.5 text-center font-mono font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-center font-bold text-slate-900 border-l border-slate-200 whitespace-nowrap">
                             {formatNumber(remaining)}
                           </td>
                           <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
@@ -803,7 +801,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                       ثالثاً: سجل الملاحظات التنفيذية واليوميات الميدانية ({latestLog.dayName} {latestLog.date})
                     </h2>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-600">
+                  <span className="text-[11px] text-slate-600 font-medium">
                     توثيق: {latestLog.loggedBy}
                   </span>
                 </div>
@@ -918,7 +916,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
               </div>
 
               {/* End of Official Report Notice */}
-              <div className="text-center text-[10px] text-slate-400 mt-6 pt-3 border-t border-slate-200 font-mono">
+              <div className="text-center text-[10px] text-slate-400 mt-6 pt-3 border-t border-slate-200">
                 — نهاية التقرير الهندسي المعتمد — تم الإصدار عبر «محلّل البيانات الهندسي» —
               </div>
             </footer>

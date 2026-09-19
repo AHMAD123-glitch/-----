@@ -6,6 +6,13 @@
   }
 }
 
+#printable-report,
+#printable-report * {
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  font-feature-settings: "liga" 1, "calt" 1 !important;
+}
+
 @media print {
   body {
     background: #ffffff !important;

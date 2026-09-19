@@ -64,11 +64,11 @@ export function calculateMaterialMetrics(materials: MaterialItem[]) {
 }
 
 export function formatCurrency(amount: number, currency: string = 'ر.س'): string {
-  return `${amount.toLocaleString('ar-SA', { maximumFractionDigits: 0 })} ${currency}`;
+  return `${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${currency}`;
 }
 
 export function formatNumber(num: number, decimals: number = 0): string {
-  return num.toLocaleString('ar-SA', { 
+  return num.toLocaleString('en-US', { 
     minimumFractionDigits: decimals, 
     maximumFractionDigits: decimals 
   });
